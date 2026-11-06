@@ -50,6 +50,9 @@ pub struct Unit {
     pub need_daemon_reload: Option<bool>,
     pub install_wanted_by: Vec<String>,
     pub config_notes: Vec<String>,
+    /// Allowlisted manager properties; missing values remain unknown.
+    #[serde(default)]
+    pub runtime_properties: BTreeMap<String, String>,
 }
 impl Unit {
     pub fn named(name: &str) -> Self {

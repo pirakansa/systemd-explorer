@@ -275,3 +275,64 @@ fn samples_follow_the_rust_contract() {
         assert!(s.relations.iter().any(|r| r.kind == "After"));
     }
 }
+
+#[test]
+fn runtime_properties_preserve_service_results_and_mount_mapping() {
+    struct RuntimeFixture {
+        base: FixtureRunner,
+        source: &'static str,
+    }
+    impl Runner for RuntimeFixture {
+        fn run(&mut self, program: &str, args: &[&str]) -> Result<String, CommandError> {
+            let text = self.base.run(program, args)?;
+            if args.contains(&"list-units") {
+                let mut rows: serde_json::Value = serde_json::from_str(&text).unwrap();
+                rows.as_array_mut()
+                    .unwrap()
+                    .push(serde_json::json!({"unit":"data.mount","load":"loaded"}));
+                return Ok(rows.to_string());
+            }
+            if args.contains(&"show") {
+                return Ok(format!("{}\n\nId=data.mount\nWhere=/srv/data\nWhat={}\nType=ext4\nResult=success\n", text.replacen("\n\n", "\nType=notify\nNotifyAccess=main\nRemainAfterExit=no\nResult=exit-code\nExecMainCode=1\nExecMainStatus=7\nConditionResult=no\nConditionTimestampMonotonic=0\n\n", 1), self.source));
+            }
+            Ok(text)
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    for source in [
+        "/dev/disk/by-label/fictitious",
+        "//user:password@example.invalid/share",
+        "https://example.invalid/share?token=fictitious",
+    ] {
+        let mut r = RuntimeFixture {
+            base: fixture(),
+            source,
+        };
+        let snapshot = collect(&mut r, Some(vec![dir.path().into()]));
+        let service = snapshot
+            .units
+            .iter()
+            .find(|u| u.name == "demo.service")
+            .unwrap();
+        assert_eq!(service.runtime_properties["Type"], "notify");
+        assert_eq!(service.runtime_properties["ExecMainStatus"], "7");
+        assert_eq!(
+            service.runtime_properties["ConditionTimestampMonotonic"],
+            "0"
+        );
+        let mount = snapshot
+            .units
+            .iter()
+            .find(|u| u.name == "data.mount")
+            .unwrap();
+        assert_eq!(mount.runtime_properties["Where"], "/srv/data");
+        assert_eq!(mount.runtime_properties["Type"], "ext4");
+        assert!(!mount.runtime_properties.contains_key("ExecMainStatus"));
+        if source.contains('@') || source.contains("://") {
+            assert!(!mount.runtime_properties.contains_key("What"));
+            assert!(!serde_json::to_string(&snapshot).unwrap().contains(source));
+        } else {
+            assert_eq!(mount.runtime_properties["What"], source);
+        }
+    }
+}

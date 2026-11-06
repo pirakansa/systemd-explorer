@@ -17,6 +17,7 @@
     for (const u of data.units) {
       if (!u || typeof u !== 'object') throw Error('Invalid unit.');
       string(u.name, 'unit name');
+      if (u.runtime_properties !== undefined && (!u.runtime_properties || typeof u.runtime_properties !== 'object' || Array.isArray(u.runtime_properties) || Object.values(u.runtime_properties).some(v => typeof v !== 'string'))) throw Error('Invalid runtime properties.');
       if (names.has(u.name)) throw Error('Duplicate unit name: ' + u.name);
       names.add(u.name);
       for (const key of ['drop_in_paths', 'install_wanted_by', 'config_notes']) {

@@ -84,6 +84,14 @@
     const dl = el('dl'); out.append(dl);
     for (const [label, key] of [['Type', 'unit_type'], ['Description', 'description'], ['Load state', 'load_state'], ['Active state', 'active_state'], ['Sub state', 'sub_state'], ['Unit file state', 'unit_file_state'], ['FragmentPath (manager observation)', 'fragment_path'], ['SourcePath', 'source_path']]) field(dl, label, u[key]);
     field(dl, 'Inventory', `${u.loaded ? 'Manager loaded inventory' : 'Not observed loaded'}; ${u.installed ? 'installed inventory' : 'not observed installed'}${u.unresolved ? '; unresolved reference' : ''}`);
+    out.append(el('h3', 'Startup, conditions and result'));
+    const runtime = u.runtime_properties || {};
+    const runtimeList = el('dl'); out.append(runtimeList);
+    const fields = ['ConditionResult', 'AssertResult', 'ConditionTimestampMonotonic', 'AssertTimestampMonotonic'];
+    if (u.unit_type === 'service') fields.push('Type', 'RemainAfterExit', 'NotifyAccess', 'Result', 'ExecMainCode', 'ExecMainStatus');
+    if (u.unit_type === 'mount') fields.push('Where', 'What', 'Type', 'Result');
+    for (const key of fields) field(runtimeList, key, runtime[key]);
+    out.append(el('p', 'Manager observations, not application health. Condition/assert timestamps are boot-monotonic microseconds; zero or missing means no evaluation timestamp collected. Results can refer to the latest attempt. ExecMainCode and ExecMainStatus must be interpreted together (exit status versus signal). Type describes service startup semantics, not proof that dependencies are ready. Missing fields require recollection or may be unsupported.', 'muted'));
     field(dl, 'DropInPaths', (u.drop_in_paths || []).join('\n'));
     field(dl, 'Generator clue', u.generator_hint ? 'Fragment path is in a runtime generator directory; exact origin undetermined.' : 'No positive clue collected (not proof of absence).');
     field(dl, 'DefaultDependencies', u.default_dependencies === undefined || u.default_dependencies === null ? null : String(u.default_dependencies) + ' (does not attribute individual edges)');

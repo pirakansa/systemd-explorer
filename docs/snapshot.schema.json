@@ -240,6 +240,13 @@
           "items": {
             "type": "string"
           }
+        },
+        "runtime_properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Optional allowlisted manager observations; missing keys mean unknown."
         }
       },
       "additionalProperties": true
