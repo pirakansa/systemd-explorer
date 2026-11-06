@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>systemd Explorer — Offline snapshot viewer</title>
 <link rel="stylesheet" href="style.css">
-<script src="core.js" defer></script><script src="app.js" defer></script>
+<script src="core.js" defer></script><script src="timeline-core.js" defer></script><script src="timeline.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
 <header><div><h1>systemd Explorer</h1><p>Read-only evidence explorer · offline snapshot</p></div><label class="file">Open snapshot <input id="file" type="file" accept=".json,application/json"></label></header>
@@ -13,7 +13,9 @@
 <section class="explanation"><strong>Read the arrows carefully.</strong> <span class="request">Requires / Wants: A → B pulls B into an activation transaction.</span> <span class="order">After: A → B means A waits for B's ordering; Before means A precedes B.</span> After alone does not start B. Requisite checks availability without starting it. PartOf propagates stop/restart, Conflicts is exclusion, and trigger relationships are separate. Current edges and timestamps do not reconstruct the complete cause or history of activation.</section>
 <section id="overview" aria-label="Snapshot overview"></section>
 <details id="diagnostics"><summary>Collection diagnostics and warnings</summary><div id="diagnostic-body"></div></details>
-<main>
+<nav class="workspace-nav" aria-label="Workspace sections"><a href="#system-timeline">System timeline</a><a href="#unit-exploration">Unit relationships</a></nav>
+<section class="timeline" id="system-timeline"><h2>System timeline — observed transitions</h2><p>Latest manager transition timestamps, in seconds since boot (CLOCK_MONOTONIC). These are observed points, not startup durations or a complete boot trace. Missing data means unknown. Later restarts can appear long after boot. Drag in the overview to select a time window, or enter a range below. Click a unit row to inspect its relationships and details.</p><div id="timeline"></div></section>
+<main id="unit-exploration">
 <aside class="inventory"><h2>Unit inventory</h2><label>Unit name or description <input id="search" type="search" placeholder="Search units…"></label><div class="filters"><label>Type <select id="type"><option value="">All types</option></select></label><label>State <select id="state"><option value="">All states</option></select></label></div><p class="muted">Filters affect the inventory. Neighborhoods retain related units of other types.</p><div id="list-count"></div><div id="units"></div><button id="more" hidden>Show more units</button></aside>
 <section class="explore"><h2>Unit relationships</h2>
 <div class="view-switch" role="group" aria-label="Relationship view"><button id="view-list" aria-pressed="true">Relationship list</button><button id="view-graph" aria-pressed="false">Graph (N hops)</button></div>
@@ -36,6 +38,6 @@
 </section>
 <aside class="detail"><h2>Unit details</h2><div id="detail">Select a unit from the inventory.</div></aside>
 </main>
-<section class="timeline"><h2>Observed boot timings</h2><p>Latest manager transition timestamps, in seconds since boot (CLOCK_MONOTONIC). These are observations, not a complete startup trace. Missing data means unknown; a current inactive state does not mean the unit never started.</p><div id="timeline"></div></section>
+
 <footer>No network requests, backend, external fonts or runtime dependencies. Snapshot content can reveal system topology; share it deliberately. <a href="../docs/snapshot.md">Snapshot semantics</a></footer>
 </body></html>

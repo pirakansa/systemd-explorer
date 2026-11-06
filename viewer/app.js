@@ -5,6 +5,9 @@
   let data = null, idx = null, selected = null, pageSize = 100, graph = null, positions = new Map();
   let zoom = 1, pan = { x: 0, y: 0 }, drag = null, loadToken = 0;
   const canvas = $('graph'), ctx = canvas.getContext('2d');
+  const timeline = globalThis.ExplorerTimeline.create({ document, element: $('timeline'), onSelect: name => {
+    choose(name); $('unit-exploration').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } });
   const colors = { request: '#1466ab', ordering: '#9a5900', other: '#7954a1' };
   const RELATION_PAGE_SIZE = 40;
   const GRAPH_MAX_NODES = 25, GRAPH_MAX_EDGES = 80;
@@ -54,9 +57,9 @@
     } catch (e) {
       if (token !== loadToken) return;
       data = null; idx = null; selected = null; graph = null; positions.clear();
-      for (const id of ['units', 'overview', 'detail', 'timeline', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
+      for (const id of ['units', 'overview', 'detail', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
       $('more').hidden = true; $('list-count').textContent = ''; $('graph-status').textContent = 'No valid snapshot loaded.';
-      renderRelations();
+      renderRelations(); timeline.setSnapshot(null);
       draw(); message('Could not load snapshot: ' + e.message, true);
     }
   }
@@ -74,7 +77,7 @@
   }
   function choose(name) {
     if (!idx || !idx.units.has(name)) return;
-    selected = name; $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph();
+    selected = name; timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph();
   }
   function renderDetails() {
     const u = idx.units.get(selected), out = $('detail'); out.replaceChildren(el('h3', u.name));
@@ -233,23 +236,7 @@
       ctx.font = '10px system-ui'; ctx.fillText(`${p.u.unit_type || 'unknown'} · ${p.u.active_state || 'unknown'}`, p.x, p.y + 13);
     }
   }
-  function renderTimeline() {
-    const out = $('timeline'); out.replaceChildren();
-    if (data.metadata.boot_id && data.metadata.boot_id_at_end && data.metadata.boot_id !== data.metadata.boot_id_at_end) {
-      out.append(el('p', 'Boot ID changed during collection. A shared boot timeline cannot be established; inspect individual raw observations and warnings.', 'warning'));
-      return;
-    }
-    const valid = data.timings.filter(t => C.seconds(t) !== null && t.event === 'ActiveEnterTimestampMonotonic').sort((a, b) => a.value - b.value);
-    const known = new Set(valid.map(t => t.unit));
-    out.append(el('p', `${valid.length} observed latest active-entry timestamps; ${Array.from(idx.units.keys()).filter(n => !known.has(n)).length} units without comparable active-entry timing. Showing up to 200 observations; all per-unit times remain in details.`));
-    if (!valid.length) { out.append(el('p', 'No comparable timing observations available.')); return; }
-    const max = valid.reduce((max, t) => Math.max(max, C.seconds(t)), 1);
-    for (const t of valid.slice(0, 200)) {
-      const row = el('div', undefined, 'timing-row'), track = el('div', undefined, 'track'), marker = el('span', undefined, 'marker');
-      marker.style.left = Math.min(99, C.seconds(t) / max * 99) + '%'; track.append(marker);
-      row.append(button(t.unit), track, el('span', C.seconds(t).toFixed(3) + ' s')); out.append(row);
-    }
-  }
+  function renderTimeline() { timeline.setSnapshot(data, idx.units); }
   $('file').addEventListener('change', e => load(e.target.files[0]));
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
@@ -282,5 +269,5 @@
     }
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
-  window.addEventListener('resize', draw); setView('list'); renderRelations();
+  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null);
 })();

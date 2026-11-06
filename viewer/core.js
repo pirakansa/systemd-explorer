@@ -49,6 +49,9 @@
         adjacency.get(name).push(i);
       }
     });
+    for (const collection of [data.timings, data.devices]) for (const record of collection) {
+      if (!units.has(record.unit)) units.set(record.unit, { name: record.unit, unit_type: record.unit.split('.').pop(), unresolved: true });
+    }
     return { units, adjacency, relations: data.relations };
   }
   function neighborhood(idx, name, hops, allowed, { maxNodes = 180, maxEdges = 800, activeOnly = false } = {}) {
