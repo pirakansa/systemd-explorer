@@ -262,3 +262,16 @@ test('global timeline range inputs, brush, zoom and reset preserve observation s
   assert.equal(get('timeline-rows').children.length, 0);
   assert.match(get('timeline-status').textContent, /Open a snapshot/);
 });
+test('service results and mount paths display alongside legacy unknown values', async () => {
+  const {get,load}=setup(), data=JSON.parse(small);
+  data.units.find(u=>u.name==='demo.service').runtime_properties={Type:'notify',Result:'exit-code',ExecMainCode:'1',ExecMainStatus:'7',ConditionResult:'no',ConditionTimestampMonotonic:'0'};
+  data.units.find(u=>u.name==='data.mount').runtime_properties={Where:'/srv/fictitious',What:'/dev/fictitious',Type:'ext4',Result:'success'};
+  await load(JSON.stringify(data));
+  get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+  assert.match(get('detail').textContent,/notify/);assert.match(get('detail').textContent,/exit-code/);
+  get('units').children.find(b=>b.textContent.startsWith('data.mount')).fire('click');
+  assert.match(get('detail').textContent,/\/srv\/fictitious/);assert.match(get('detail').textContent,/\/dev\/fictitious/);
+  await load(small);
+  get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+  assert.match(get('detail').textContent,/Unknown \/ not collected/);
+});

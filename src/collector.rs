@@ -164,6 +164,36 @@ fn apply_properties(
     u.load_state = optional(&p, "LoadState");
     u.active_state = optional(&p, "ActiveState");
     u.sub_state = optional(&p, "SubState");
+    let specific = match u.unit_type.as_str() {
+        "service" => parse::SERVICE_PROPERTIES,
+        "mount" => parse::MOUNT_PROPERTIES,
+        _ => &[],
+    };
+    let mut missing = Vec::new();
+    for key in parse::COMMON_RUNTIME_PROPERTIES.iter().chain(specific) {
+        if let Some(value) = optional(&p, key) {
+            // Never export mount source userinfo or inline password-like material.
+            if *key == "What"
+                && (value.contains(['@', '?', '#'])
+                    || value.contains("://")
+                    || value.to_ascii_lowercase().contains("password="))
+            {
+                s.warn(
+                    "runtime-properties",
+                    Some(name),
+                    "Mount source omitted because it may contain credentials.",
+                );
+                continue;
+            }
+            u.runtime_properties.insert((*key).into(), value);
+        } else {
+            missing.push(*key);
+        }
+    }
+    if !missing.is_empty() {
+        s.warn("runtime-properties", Some(name), format!("Properties unavailable or empty: {}. Older snapshots and unsupported properties remain unknown.", missing.join(", ")));
+    }
+
     if let Some(state) = optional(&p, "UnitFileState") {
         u.unit_file_state = Some(state);
     }
@@ -454,9 +484,12 @@ pub fn collect(r: &mut impl Runner, unit_paths: Option<Vec<PathBuf>>) -> Snapsho
         );
     }
     let properties = format!(
-        "--property={},{}",
+        "--property={},{},{},{},{}",
         parse::BASE_PROPERTIES,
-        RELATION_KINDS.join(",")
+        RELATION_KINDS.join(","),
+        parse::COMMON_RUNTIME_PROPERTIES.join(","),
+        parse::SERVICE_PROPERTIES.join(","),
+        parse::MOUNT_PROPERTIES.join(",")
     );
     for batch in loaded
         .chunks(SHOW_BATCH)

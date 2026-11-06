@@ -25,6 +25,21 @@ pub const TIMESTAMP_PROPERTIES: &[&str] = &[
     "ActiveExitTimestampMonotonic",
     "InactiveEnterTimestampMonotonic",
 ];
+pub const COMMON_RUNTIME_PROPERTIES: &[&str] = &[
+    "ConditionResult",
+    "AssertResult",
+    "ConditionTimestampMonotonic",
+    "AssertTimestampMonotonic",
+];
+pub const SERVICE_PROPERTIES: &[&str] = &[
+    "Type",
+    "RemainAfterExit",
+    "NotifyAccess",
+    "Result",
+    "ExecMainCode",
+    "ExecMainStatus",
+];
+pub const MOUNT_PROPERTIES: &[&str] = &["Where", "What", "Type", "Result"];
 pub const BASE_PROPERTIES: &str = "Id,Names,Description,LoadState,ActiveState,SubState,UnitFileState,FragmentPath,DropInPaths,SourcePath,DefaultDependencies,NeedDaemonReload,SysFSPath,InactiveExitTimestampMonotonic,ActiveEnterTimestampMonotonic,ActiveExitTimestampMonotonic,InactiveEnterTimestampMonotonic";
 
 pub fn properties(input: &str) -> Vec<BTreeMap<String, String>> {
