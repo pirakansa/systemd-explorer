@@ -107,6 +107,22 @@
     }
     const warnings = data.warnings.filter(w => w && w.unit === selected);
     if (warnings.length) { out.append(el('h3', 'Warnings')); for (const w of warnings) out.append(el('p', `${w.item}: ${w.message}`, 'warning')); }
+    const context = globalThis.ExplorerContext.inspect(idx, selected);
+    out.append(el('h3', 'Activation request paths (effective observations)'), el('p', 'Candidates only, not proof of actual activation. Up to four request hops / 100 explored paths. Triggers and stop propagation are separate.', 'muted'));
+    for (const path of context.paths) {
+      const row = el('div', undefined, 'relation');
+      path.nodes.forEach((name, i) => { row.append(button(name)); if (i < path.edges.length) row.append(el('small', path.edges[i].kind + ' → · ' + path.edges[i].source)); }); out.append(row);
+    }
+    if (!context.paths.length) out.append(el('p', 'No upstream request path collected. This does not establish why the unit started.'));
+    if (context.truncated) out.append(el('p', 'Path exploration limited by depth, size or cycles.', 'warning'));
+    for (const [label, rows] of [['Waits for (ordering only)', context.waits], ['Ordered before', context.waitedBy]]) {
+      out.append(el('h3', label), el('p', 'Ordering does not start the other unit or prove application readiness.', 'muted'));
+      for (const row of rows) out.append(button(row.unit), el('small', row.edge.kind + ' · ' + row.edge.source));
+      if (!rows.length) out.append(el('p', 'No ordering constraint collected.'));
+    }
+    out.append(el('h3', 'Device / mount / trigger contacts'), el('p', 'Effective property contacts within two undirected hops (100 nodes). These are not sysfs parentage or a hardware startup trace.', 'muted'));
+    for (const edge of context.hardware) out.append(el('p', edge.from + ' → ' + edge.to + ' · ' + edge.kind), button(edge.from === selected ? edge.to : edge.from));
+    if (!context.hardware.length) out.append(el('p', 'No nearby contacts collected; hardware readiness remains unknown.'));
     out.append(el('h3', 'Incoming / outgoing relationships'));
     out.append(el('p', 'All collected relationships, including those hidden by view filters.', 'muted'));
     const edges = (idx.adjacency.get(selected) || []).map(i => idx.relations[i]);

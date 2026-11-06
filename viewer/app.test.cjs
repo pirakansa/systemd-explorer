@@ -49,7 +49,7 @@ function setup() {
     const input = new Element('input'); input.value = value; input.checked = value === 'effective'; get('evidence').append(input);
   }
   const context = vm.createContext({ document, window, console });
-  for (const script of ['core.js', 'timeline-core.js', 'timeline.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
+  for (const script of ['core.js', 'timeline-core.js', 'timeline.js', 'context.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
   async function load(text, name = 'test.json') {
     get('file').fire('change', { target: { files: [{ name, size: text.length, text: async () => text }] } });
     await new Promise(resolve => setImmediate(resolve));

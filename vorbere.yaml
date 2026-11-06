@@ -7,7 +7,7 @@ tasks:
     run: cargo clippy --all-targets -- -D warnings
     desc: lint all Rust targets
   viewer-check:
-    run: node --check viewer/core.js && node --check viewer/timeline-core.js && node --check viewer/timeline.js && node --check viewer/app.js && node --check .github/scripts/release-metadata.cjs
+    run: node --check viewer/context.js && node --check viewer/core.js && node --check viewer/timeline-core.js && node --check viewer/timeline.js && node --check viewer/app.js && node --check .github/scripts/release-metadata.cjs
     desc: check offline viewer and release helper JavaScript syntax
   vulnerability:
     run: cargo audit
