@@ -14,7 +14,7 @@ cargo build --release
 # Alternatively: cargo run --release -- collect --output snapshot.json
 ```
 
-Run as an ordinary user. Copy `snapshot.json` and this repository's `viewer/` directory to another PC using your preferred transfer method. Open `viewer/index.html` directly, then select or drop the JSON file. Try the fictional [small](viewer/samples/small.json) or [medium](viewer/samples/medium.json) samples first. Select a unit to expand its neighborhood; the viewer initially draws no full-system edge graph.
+Run as an ordinary user. Copy `snapshot.json` and this repository's `viewer/` directory to another PC using your preferred transfer method. Open `viewer/index.html` directly, then select or drop the JSON file. Try the fictional [small](viewer/samples/small.json) or [medium](viewer/samples/medium.json) samples first. Select a unit to browse grouped incoming/outgoing relationship lists, or switch to the supplementary neighborhood graph.
 
 **Effective dependencies, activation requests, ordering constraints and observed timestamps are different concepts.** `After=` alone does not start its referenced unit. Disk symlinks and `[Install] WantedBy=` are separately switchable hints and do not prove a current manager relationship. Missing state/history is unknown, not proof that a unit never started.
 

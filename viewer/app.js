@@ -6,6 +6,8 @@
   let zoom = 1, pan = { x: 0, y: 0 }, drag = null, loadToken = 0;
   const canvas = $('graph'), ctx = canvas.getContext('2d');
   const colors = { request: '#1466ab', ordering: '#9a5900', other: '#7954a1' };
+  const RELATION_PAGE_SIZE = 40;
+  const GRAPH_MAX_NODES = 25, GRAPH_MAX_EDGES = 80;
   function el(tag, text, cls) {
     const e = document.createElement(tag); if (text !== undefined) e.textContent = String(text); if (cls) e.className = cls; return e;
   }
@@ -25,7 +27,7 @@
       if (token !== loadToken) return;
       const parsed = C.validate(JSON.parse(text));
       data = parsed; idx = C.index(data); selected = null; pageSize = 100; graph = null; positions.clear();
-      $('search').value = ''; $('detail').textContent = 'Select a unit from the inventory.';
+      $('search').value = ''; $('relations-search').value = ''; $('detail').textContent = 'Select a unit from the inventory.';
       $('graph-status').textContent = 'Select a unit to explore a bounded neighborhood.';
       setOptions('type', Array.from(idx.units.values()).map(u => u.unit_type || 'unknown'), 'All types');
       setOptions('state', Array.from(idx.units.values()).map(u => u.active_state || 'unknown'), 'All states');
@@ -35,6 +37,7 @@
         const input = document.createElement('input'); input.type = 'checkbox'; input.value = kind; input.checked = true;
         input.addEventListener('change', updateGraph); label.append(input, document.createTextNode(kind)); $('kinds').append(label);
       }
+      syncKindControls();
       $('overview').replaceChildren();
       for (const text of [`${idx.units.size} units (including references)`, `${data.relations.filter(e => e.evidence === 'effective').length} effective relations`, `${data.warnings.length} warnings`, `systemd: ${data.metadata.systemd_version || 'unknown'}`, `boot: ${data.metadata.boot_id || 'unknown'}`]) $('overview').append(el('span', text, 'stat'));
       for (const key of ['unit_type', 'active_state']) {
@@ -47,12 +50,13 @@
       for (const d of Array.isArray(data.metadata.diagnostics) ? data.metadata.diagnostics : []) if (d) diagnostic.append(el('div', `${d.item}: ${d.status} — ${d.detail}`));
       for (const w of data.warnings) if (w) diagnostic.append(el('div', `${w.unit || 'snapshot'} / ${w.item}: ${w.message}`, 'warning'));
       message(idx.units.size ? `Loaded ${file.name}. ${data.warnings.length ? 'Partial observations: inspect collection warnings.' : 'Review diagnostics for collection coverage.'}` : 'Snapshot contains no units. Collection diagnostics may explain missing data.');
-      renderInventory(); renderTimeline(); resetView();
+      renderInventory(); renderTimeline(); renderRelations(); resetView();
     } catch (e) {
       if (token !== loadToken) return;
       data = null; idx = null; selected = null; graph = null; positions.clear();
       for (const id of ['units', 'overview', 'detail', 'timeline', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
       $('more').hidden = true; $('list-count').textContent = ''; $('graph-status').textContent = 'No valid snapshot loaded.';
+      renderRelations();
       draw(); message('Could not load snapshot: ' + e.message, true);
     }
   }
@@ -70,7 +74,7 @@
   }
   function choose(name) {
     if (!idx || !idx.units.has(name)) return;
-    selected = name; renderInventory(); renderDetails(); updateGraph();
+    selected = name; $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph();
   }
   function renderDetails() {
     const u = idx.units.get(selected), out = $('detail'); out.replaceChildren(el('h3', u.name));
@@ -101,6 +105,7 @@
     const warnings = data.warnings.filter(w => w && w.unit === selected);
     if (warnings.length) { out.append(el('h3', 'Warnings')); for (const w of warnings) out.append(el('p', `${w.item}: ${w.message}`, 'warning')); }
     out.append(el('h3', 'Incoming / outgoing relationships'));
+    out.append(el('p', 'All collected relationships, including those hidden by view filters.', 'muted'));
     const edges = (idx.adjacency.get(selected) || []).map(i => idx.relations[i]);
     if (!edges.length) out.append(el('p', 'No relationships collected. This is not proof of no dependencies.'));
     // Details are paginated separately so graph caps never hide navigation entirely.
@@ -118,28 +123,92 @@
     }
     out.append(more); more.addEventListener('click', appendEdges); appendEdges();
   }
-  function updateGraph() {
-    if (!idx || !selected) return;
+  function syncKindControls() {
+    for (const input of $('kinds').querySelectorAll('input')) {
+      input.disabled = $('requests-only').checked && C.category(input.value) !== 'request';
+    }
+  }
+  function relationshipFilters() {
     const layers = new Set(Array.from($('evidence').querySelectorAll('input:checked'), c => c.value));
     const kinds = new Set(Array.from($('kinds').querySelectorAll('input:checked'), c => c.value));
-    graph = C.neighborhood(idx, selected, $('hops').value, e => layers.has(e.evidence) && kinds.has(e.kind));
+    const requestsOnly = $('requests-only').checked, activeOnly = $('active-only').checked;
+    return { requestsOnly, activeOnly, allowed: e => layers.has(e.evidence) && kinds.has(e.kind) && (!requestsOnly || C.category(e.kind) === 'request') };
+  }
+  function renderRelations() {
+    const focus = $('relations-focus'); focus.replaceChildren();
+    for (const side of ['incoming', 'outgoing']) $('relations-' + side).replaceChildren();
+    if (!idx || !selected) {
+      focus.textContent = 'Select a unit from the inventory.';
+      $('relations-status').textContent = idx ? 'Select a unit to inspect its direct relationships.' : 'No snapshot loaded.';
+      return;
+    }
+    const unit = idx.units.get(selected), filters = relationshipFilters();
+    focus.append(el('h3', unit.name), el('p', `${unit.unit_type || 'unknown'} · ${unit.active_state || 'unknown'}`), el('p', unit.description || 'Description unknown', 'muted'), el('p', 'Selected unit', 'muted'));
+    const result = C.relationGroups(idx, selected, filters.allowed, { activeOnly: filters.activeOnly, query: $('relations-search').value });
+    const note = `${filters.requestsOnly ? ' · Activation requests only' : ''}${filters.activeOnly ? ` · Active only (snapshot): ${result.hiddenByState} neighboring units hidden; selected unit kept` : ''}`;
+    $('relations-status').textContent = `${selected} · ${result.matchingRelations} of ${result.totalRelations} direct relation records${note}`;
+    const evidenceNames = { effective: 'Effective manager relations', disk_symlink: 'Disk symlink hints', install_hint: 'Install hints (not enablement)' };
+    for (const side of ['incoming', 'outgoing']) {
+      const out = $('relations-' + side), groups = result[side];
+      if (!groups.length) out.append(el('p', result.totalRelations ? 'No direct relationships match the current filters/search in this direction.' : 'No direct relationships collected. This is not proof of no dependencies.', 'muted'));
+      for (const group of groups) {
+        const section = el('details', undefined, 'relation-group ' + C.category(group.kind) + (group.evidence === 'effective' ? '' : ' disk'));
+        section.open = true;
+        section.append(el('summary', `${group.kind} · ${group.rows.length} units / ${group.relationCount} records`), el('p', evidenceNames[group.evidence] || group.evidence, 'muted'));
+        const rows = el('div'), more = el('button', 'Show more units'); more.type = 'button';
+        let shown = 0;
+        function appendRows() {
+          for (const row of group.rows.slice(shown, shown + RELATION_PAGE_SIZE)) {
+            const item = el('div', undefined, 'related-row'), b = button(row.unit.name);
+            b.className = 'related-unit';
+            item.append(b, el('small', `${row.unit.unit_type || 'unknown'} · ${row.unit.active_state || 'unknown'} / ${row.unit.sub_state || 'unknown'}${row.unit.unresolved ? ' · unresolved reference' : ''}`));
+            if (row.relations.length > 1) item.append(el('small', `${row.relations.length} observations; all sources available in unit details.`));
+            rows.append(item);
+          }
+          shown = Math.min(group.rows.length, shown + RELATION_PAGE_SIZE);
+          more.hidden = shown >= group.rows.length;
+          more.textContent = `Show more units (${shown} / ${group.rows.length})`;
+        }
+        more.addEventListener('click', appendRows); section.append(rows, more); appendRows(); out.append(section);
+      }
+    }
+  }
+  function setView(view) {
+    $('relations-panel').hidden = view !== 'list'; $('graph-panel').hidden = view !== 'graph';
+    $('view-list').setAttribute('aria-pressed', String(view === 'list'));
+    $('view-graph').setAttribute('aria-pressed', String(view === 'graph'));
+    if (view === 'graph') resetView();
+  }
+  function updateGraph() {
+    syncKindControls();
+    renderRelations();
+    if (!idx || !selected) return;
+    const { allowed, requestsOnly, activeOnly } = relationshipFilters();
+    graph = C.neighborhood(idx, selected, $('hops').value,
+      allowed, { activeOnly, maxNodes: GRAPH_MAX_NODES, maxEdges: GRAPH_MAX_EDGES });
     positions.clear();
     const groups = new Map();
     for (const n of graph.nodes) { if (!groups.has(n.depth)) groups.set(n.depth, []); groups.get(n.depth).push(n); }
     for (const [depth, group] of groups) group.forEach((n, i) => {
-      const angle = i * Math.PI * 2 / group.length - Math.PI / 2;
-      positions.set(n.unit.name, { x: depth ? Math.cos(angle) * depth * 190 : 0, y: depth ? Math.sin(angle) * depth * 190 : 0, u: n.unit });
+      positions.set(n.unit.name, { x: depth * 260, y: (i - (group.length - 1) / 2) * 64, u: n.unit });
     });
-    $('graph-status').textContent = `${selected} · ${graph.nodes.length} nodes / ${graph.edges.length} edges${graph.truncated ? ' · TRUNCATED: reduce hops or disable relation layers. All collected relationships remain in details.' : ''}`;
+    const filters = `${requestsOnly ? ' · Activation requests only' : ''}${activeOnly ? ` · Active only (snapshot): ${graph.hiddenByState} neighboring units hidden; selected unit kept` : ''}`;
+    $('graph-status').textContent = `${selected} · ${graph.nodes.length} nodes / ${graph.edges.length} edges${filters}${graph.truncated ? ' · TRUNCATED: reduce hops or disable relation layers. All direct relationships remain in the list; all collected relationships remain in details.' : ''}`;
     resetView();
   }
   function resetView() {
-    const width = canvas.clientWidth || 500, height = canvas.clientHeight || 480;
-    let extentX = 150, extentY = 60;
-    for (const p of positions.values()) { extentX = Math.max(extentX, Math.abs(p.x) + 110); extentY = Math.max(extentY, Math.abs(p.y) + 30); }
-    zoom = Math.min(1, width / (extentX * 2), height / (extentY * 2)); pan = { x: width / 2, y: height / 2 }; draw();
+    if ($('graph-panel').hidden) return;
+    const viewportWidth = $('graph-viewport').clientWidth || 500;
+    let minX = -110, maxX = 110, extentY = 60;
+    for (const p of positions.values()) { minX = Math.min(minX, p.x - 110); maxX = Math.max(maxX, p.x + 110); extentY = Math.max(extentY, Math.abs(p.y) + 30); }
+    const width = Math.max(viewportWidth, maxX - minX + 40), height = Math.max(480, extentY * 2 + 40);
+    canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+    zoom = 1; pan = { x: -minX + (width - (maxX - minX)) / 2, y: height / 2 };
+    $('graph-viewport').scrollLeft = 0;
+    $('graph-viewport').scrollTop = Math.max(0, (height - 480) / 2); draw();
   }
   function draw() {
+    if ($('graph-panel').hidden) return;
     const dpr = window.devicePixelRatio || 1, width = canvas.clientWidth || 500, height = canvas.clientHeight || 480;
     canvas.width = width * dpr; canvas.height = height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
@@ -151,7 +220,8 @@
       ctx.setLineDash(e.evidence !== 'effective' ? [2, 5] : category === 'ordering' ? [8, 5] : []);
       if (e.from === e.to) { ctx.beginPath(); ctx.arc(a.x + 70, a.y - 14, 22, 0, Math.PI * 2); ctx.stroke(); continue; }
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
-      const endX = b.x - ux * 28, endY = b.y - uy * 28;
+      const boundary = Math.min(90 / Math.abs(ux), 20 / Math.abs(uy)) + 4;
+      const endX = b.x - ux * boundary, endY = b.y - uy * boundary;
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(endX, endY); ctx.stroke();
       ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(endX, endY); ctx.lineTo(endX - ux * 10 - uy * 5, endY - uy * 10 + ux * 5); ctx.lineTo(endX - ux * 10 + uy * 5, endY - uy * 10 - ux * 5); ctx.fill();
     }
@@ -185,15 +255,19 @@
   document.addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
   for (const id of ['search', 'type', 'state']) $(id).addEventListener(id === 'search' ? 'input' : 'change', () => { pageSize = 100; renderInventory(); });
   $('more').addEventListener('click', () => { pageSize += 100; renderInventory(); });
+  $('relations-search').addEventListener('input', renderRelations);
+  $('view-list').addEventListener('click', () => setView('list'));
+  $('view-graph').addEventListener('click', () => setView('graph'));
   $('hops').addEventListener('change', updateGraph);
+  for (const id of ['requests-only', 'active-only']) $(id).addEventListener('change', updateGraph);
   $('evidence').addEventListener('change', updateGraph);
   $('fit').addEventListener('click', resetView);
-  function scale(factor, x = canvas.clientWidth / 2, y = canvas.clientHeight / 2) {
+  function scale(factor, x = $('graph-viewport').scrollLeft + $('graph-viewport').clientWidth / 2, y = $('graph-viewport').scrollTop + $('graph-viewport').clientHeight / 2) {
     const next = Math.min(4, Math.max(.08, zoom * factor)), ratio = next / zoom;
     pan = { x: x - (x - pan.x) * ratio, y: y - (y - pan.y) * ratio }; zoom = next; draw();
   }
   $('zoom-in').addEventListener('click', () => scale(1.25)); $('zoom-out').addEventListener('click', () => scale(.8));
-  canvas.addEventListener('wheel', e => { e.preventDefault(); const r = canvas.getBoundingClientRect(); scale(e.deltaY < 0 ? 1.12 : .89, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  canvas.addEventListener('wheel', e => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); const r = canvas.getBoundingClientRect(); scale(e.deltaY < 0 ? 1.12 : .89, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
   canvas.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY }; canvas.setPointerCapture(e.pointerId); });
   canvas.addEventListener('pointermove', e => {
     if (!drag) return;
@@ -208,5 +282,5 @@
     }
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
-  window.addEventListener('resize', draw); draw();
+  window.addEventListener('resize', draw); setView('list'); renderRelations();
 })();
