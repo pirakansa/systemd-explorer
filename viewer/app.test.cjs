@@ -25,11 +25,20 @@ class Element {
   }
   setPointerCapture() {}
   getBoundingClientRect() { return { left: 0, top: 0 }; }
+  scrollIntoView() { this.scrolledIntoView = true; }
   getContext() { this.drawCalls = []; return new Proxy({}, { get: (_, name) => (...args) => this.drawCalls.push({ name, args }), set: () => true }); }
 }
 function setup() {
   const elements = new Map();
-  const get = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
+  const find = (node, id) => { if (node.id === id) return node; for (const child of node.children) { const found = find(child, id); if (found) return found; } };
+  const get = id => {
+    if (!elements.has(id)) {
+      let found;
+      for (const root of elements.values()) { found = find(root, id); if (found) break; }
+      elements.set(id, found || new Element());
+    }
+    return elements.get(id);
+  };
   const document = new Element('document');
   document.getElementById = get;
   document.createElement = tag => new Element(tag);
@@ -40,7 +49,7 @@ function setup() {
     const input = new Element('input'); input.value = value; input.checked = value === 'effective'; get('evidence').append(input);
   }
   const context = vm.createContext({ document, window, console });
-  for (const script of ['core.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
+  for (const script of ['core.js', 'timeline-core.js', 'timeline.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
   async function load(text, name = 'test.json') {
     get('file').fire('change', { target: { files: [{ name, size: text.length, text: async () => text }] } });
     await new Promise(resolve => setImmediate(resolve));
@@ -197,4 +206,59 @@ test('list keeps evidence layers separate, applies active/request filters and ex
   assert.equal(get('relations-incoming').children.length, 0);
   assert.equal(get('relations-outgoing').children.length, 0);
   assert.match(get('relations-status').textContent, /No snapshot loaded/);
+});
+test('global timeline virtualizes large inventories, folds types and navigates late search results', async () => {
+  const { get, load } = setup(), data = JSON.parse(small);
+  data.units = Array.from({ length: 3000 }, (_, i) => ({ name: `worker-${String(i).padStart(4, '0')}.service`, unit_type: 'service', active_state: 'active' }));
+  data.units.push({ name: 'unknown.service', unit_type: 'service' });
+  data.relations = []; data.devices = [];
+  data.timings = data.units.slice(0, 3000).map((u, i) => ({ unit: u.name, event: 'ActiveEnterTimestampMonotonic', value: (i + 1) * 10000, clock: 'boot_monotonic', unit_of_time: 'microseconds', certainty: 'observed', source: 'fictional test' }));
+  await load(JSON.stringify(data));
+  assert.match(get('timeline-status').textContent, /3000 observed transitions; 1 units without comparable timing/);
+  assert(get('timeline-rows').children.length < 16);
+  get('timeline-viewport').scrollTop = 36 + 64 * 2500; get('timeline-viewport').fire('scroll');
+  assert.match(get('timeline-rows').textContent, /worker-2500.service/);
+  assert(get('timeline-rows').children.length < 16);
+  get('timeline-collapse').fire('click');
+  assert.equal(get('timeline-rows').children.length, 1);
+  assert.match(get('timeline-rows').textContent, /service · 3001 units/);
+  get('timeline-expand').fire('click');
+  get('timeline-search').value = 'WORKER-2999'; get('timeline-search').fire('input');
+  assert.match(get('timeline-status').textContent, /1 units match/);
+  get('timeline-rows').querySelectorAll('button').find(b => b.textContent === 'worker-2999.service').fire('click');
+  assert.match(get('detail').textContent, /worker-2999.service/);
+  assert.equal(get('unit-exploration').scrolledIntoView, true);
+  get('timeline-search').value = 'unknown.service'; get('timeline-search').fire('input');
+  assert.match(get('timeline-rows').textContent, /Timing unknown/);
+  get('timeline-unknown').checked = false; get('timeline-unknown').fire('change');
+  assert.match(get('timeline-status').textContent, /No units match/);
+});
+test('global timeline range inputs, brush, zoom and reset preserve observation semantics', async () => {
+  const { get, load } = setup(); await load(small);
+  const fullEnd = Number(get('timeline-end').value);
+  get('timeline-zoom-in').fire('click');
+  assert(Math.abs((Number(get('timeline-end').value) - Number(get('timeline-start').value)) - fullEnd / 2) < 1e-6);
+  get('timeline-later').fire('click');
+  assert(Number(get('timeline-end').value) <= fullEnd);
+  get('timeline-reset').fire('click');
+  assert.equal(Number(get('timeline-start').value), 0);
+  get('timeline-start').value = '0'; get('timeline-end').value = '1'; get('timeline-apply').fire('click');
+  assert.match(get('timeline-status').textContent, /0.000–1.000 s/);
+  get('timeline-start').value = '2'; get('timeline-end').value = '1'; get('timeline-apply').fire('click');
+  assert.match(get('timeline-range-error').textContent, /start < end/);
+  assert.match(get('timeline-status').textContent, /0.000–1.000 s/);
+  const overview = get('timeline-overview');
+  overview.fire('pointerdown', { clientX: 60, pointerId: 1 });
+  overview.fire('pointermove', { clientX: 300, pointerId: 1 });
+  overview.fire('pointerup', { clientX: 300, pointerId: 1 });
+  assert(Math.abs(Number(get('timeline-start').value) - fullEnd * .1) < 1e-6);
+  assert(Math.abs(Number(get('timeline-end').value) - fullEnd * .5) < 1e-6);
+  assert.equal(get('timeline-range-error').textContent, '');
+  const changed = JSON.parse(small); changed.metadata.boot_id_at_end = 'other';
+  await load(JSON.stringify(changed));
+  assert.equal(get('timeline-rows').children.length, 0);
+  assert.equal(get('timeline-apply').disabled, true);
+  await load('{bad');
+  assert.equal(get('timeline-rows').children.length, 0);
+  assert.match(get('timeline-status').textContent, /Open a snapshot/);
 });
