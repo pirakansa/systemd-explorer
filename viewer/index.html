@@ -15,10 +15,24 @@
 <details id="diagnostics"><summary>Collection diagnostics and warnings</summary><div id="diagnostic-body"></div></details>
 <main>
 <aside class="inventory"><h2>Unit inventory</h2><label>Unit name or description <input id="search" type="search" placeholder="Search units…"></label><div class="filters"><label>Type <select id="type"><option value="">All types</option></select></label><label>State <select id="state"><option value="">All states</option></select></label></div><p class="muted">Filters affect the inventory. Neighborhoods retain related units of other types.</p><div id="list-count"></div><div id="units"></div><button id="more" hidden>Show more units</button></aside>
-<section class="explore"><h2>Neighborhood graph</h2><div class="toolbar"><label>Hops in both directions <input id="hops" type="number" min="0" max="4" value="1"></label><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit">Reset view</button></div>
+<section class="explore"><h2>Unit relationships</h2>
+<div class="view-switch" role="group" aria-label="Relationship view"><button id="view-list" aria-pressed="true">Relationship list</button><button id="view-graph" aria-pressed="false">Graph (N hops)</button></div>
+<fieldset><legend>Relationship filters</legend><label><input id="requests-only" type="checkbox"> Activation requests only (Requires, Wants, BindsTo, Upholds)</label><label><input id="active-only" type="checkbox"> Active only (at snapshot collection)</label><p class="muted">Combine both to narrow busy targets. The selected unit is always kept. With Active only, non-active and unknown units are hidden, and traversal stops at them. Both views use these filters. All relationships remain available in details. These filters do not identify every unit that can start automatically.</p></fieldset>
 <fieldset id="evidence"><legend>Evidence layers</legend><label><input type="checkbox" value="effective" checked> Effective manager relations (solid)</label><label><input type="checkbox" value="disk_symlink"> Disk symlinks (dotted)</label><label><input type="checkbox" value="install_hint"> Install hints (dotted; not enablement)</label></fieldset>
 <details><summary>Relation kinds / legend</summary><div id="kinds"></div><p><span class="request">Blue: activation requests</span> · <span class="order">Amber / dashed: ordering constraints</span> · <span class="other">Purple: checks, propagation, conflicts, triggers and other relationships</span></p></details>
-<p id="graph-status">Select a unit to expand only its neighborhood. The entire edge graph is never drawn initially.</p><canvas id="graph" aria-label="Selected unit neighborhood. Equivalent relationships are available as buttons in the details pane."></canvas><p class="muted">Drag to pan · scroll to zoom · click a node to explore it. Limits: 180 nodes / 800 edges. Use the detail buttons for keyboard navigation.</p>
+<div id="relations-panel">
+<label class="related-search">Search related units <input id="relations-search" type="search" placeholder="Unit name or description…"></label>
+<p id="relations-status" role="status" aria-live="polite">Select a unit to inspect its direct relationships.</p>
+<div class="relation-layout">
+<section class="relation-column incoming"><h3>Referenced by</h3><p class="muted">Other unit → selected unit</p><div id="relations-incoming" class="group-list"></div></section>
+<section id="relations-focus" class="relation-focus" aria-label="Selected unit">Select a unit from the inventory.</section>
+<section class="relation-column outgoing"><h3>References</h3><p class="muted">Selected unit → other unit</p><div id="relations-outgoing" class="group-list"></div></section>
+</div><p class="muted">Direct property references (one hop), grouped by kind and evidence. Names wrap in full. Click a unit to explore its relationships. These arrows do not imply enablement or chronological order; After alone does not start a unit.</p>
+</div>
+<div id="graph-panel" hidden>
+<div class="toolbar"><label>Hops in both directions <input id="hops" type="number" min="0" max="4" value="1"></label><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button><button id="fit">Reset view</button></div>
+<p id="graph-status">Select a unit to expand its neighborhood.</p><div id="graph-viewport"><canvas id="graph" aria-label="Selected unit neighborhood. Equivalent relationships are available in the relationship list and details pane."></canvas></div><p class="muted">Supplementary graph · drag to pan · Ctrl/⌘ + scroll to zoom · click a node to explore it. Limits: 25 nodes / 80 edges. Scroll the viewport to read the graph at its original text size. Use the relationship list for all direct references.</p>
+</div>
 </section>
 <aside class="detail"><h2>Unit details</h2><div id="detail">Select a unit from the inventory.</div></aside>
 </main>

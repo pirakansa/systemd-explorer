@@ -51,9 +51,9 @@
     });
     return { units, adjacency, relations: data.relations };
   }
-  function neighborhood(idx, name, hops, allowed, maxNodes = 180, maxEdges = 800) {
-    if (!idx.units.has(name)) return { nodes: [], edges: [], truncated: false };
-    const distance = new Map([[name, 0]]), selected = [], edgeIds = new Set();
+  function neighborhood(idx, name, hops, allowed, { maxNodes = 180, maxEdges = 800, activeOnly = false } = {}) {
+    if (!idx.units.has(name)) return { nodes: [], edges: [], truncated: false, hiddenByState: 0 };
+    const distance = new Map([[name, 0]]), selected = [], edgeIds = new Set(), hidden = new Set();
     const queue = [name]; let truncated = false;
     const depth = Math.max(0, Math.min(4, Number(hops) || 0));
     for (let q = 0; q < queue.length; q++) {
@@ -64,6 +64,7 @@
         if (!allowed(e)) continue;
         const other = e.from === current ? e.to : e.from;
         if (!distance.has(other)) {
+          if (activeOnly && idx.units.get(other).active_state !== 'active') { hidden.add(other); continue; }
           if (distance.size >= maxNodes) { truncated = true; continue; }
           distance.set(other, distance.get(current) + 1); queue.push(other);
         }
@@ -78,15 +79,42 @@
         if (selected.length < maxEdges) selected.push(e); else truncated = true;
       }
     }
-    return { nodes: queue.map(name => ({ unit: idx.units.get(name), depth: distance.get(name) })), edges: selected, truncated };
+    return { nodes: queue.map(name => ({ unit: idx.units.get(name), depth: distance.get(name) })), edges: selected, truncated, hiddenByState: hidden.size };
   }
   function seconds(t) {
     return t.clock === 'boot_monotonic' && t.unit_of_time === 'microseconds' && t.certainty === 'observed' && Number.isSafeInteger(t.value) && t.value > 0 ? t.value / 1000000 : null;
+  }
+  // Lists cover all direct observations; graph size caps never remove rows here.
+  function relationGroups(idx, name, allowed, { activeOnly = false, query = '' } = {}) {
+    const sides = { incoming: new Map(), outgoing: new Map() }, hidden = new Set();
+    const ids = idx.adjacency.get(name) || [], needle = query.trim().toLowerCase();
+    let matchingRelations = 0;
+    for (const id of ids) {
+      const edge = idx.relations[id];
+      if (!allowed(edge)) continue;
+      const other = edge.from === name ? edge.to : edge.from, unit = idx.units.get(other);
+      if (activeOnly && other !== name && unit.active_state !== 'active') { hidden.add(other); continue; }
+      if (needle && !other.toLowerCase().includes(needle) && !String(unit.description || '').toLowerCase().includes(needle)) continue;
+      matchingRelations++;
+      for (const side of ['incoming', 'outgoing']) {
+        if (side === 'incoming' ? edge.to !== name : edge.from !== name) continue;
+        const key = JSON.stringify([edge.kind, edge.evidence]);
+        if (!sides[side].has(key)) sides[side].set(key, { kind: edge.kind, evidence: edge.evidence, rows: new Map(), relationCount: 0 });
+        const group = sides[side].get(key);
+        if (!group.rows.has(other)) group.rows.set(other, { unit, relations: [] });
+        group.rows.get(other).relations.push(edge); group.relationCount++;
+      }
+    }
+    const rank = { request: 0, ordering: 1, other: 2 };
+    const groups = side => Array.from(sides[side].values())
+      .sort((a, b) => rank[category(a.kind)] - rank[category(b.kind)] || a.kind.localeCompare(b.kind) || a.evidence.localeCompare(b.evidence))
+      .map(g => ({ ...g, rows: Array.from(g.rows.values()).sort((a, b) => a.unit.name.localeCompare(b.unit.name)) }));
+    return { incoming: groups('incoming'), outgoing: groups('outgoing'), totalRelations: ids.length, matchingRelations, hiddenByState: hidden.size };
   }
   function filteredUnits(idx, query, type, state) {
     const needle = query.toLowerCase();
     return Array.from(idx.units.values()).filter(u => (u.name.toLowerCase().includes(needle) || String(u.description || '').toLowerCase().includes(needle)) && (!type || u.unit_type === type) && (!state || (u.active_state || 'unknown') === state));
   }
-  root.ExplorerCore = { validate, index, neighborhood, category, seconds, filteredUnits };
+  root.ExplorerCore = { validate, index, neighborhood, relationGroups, category, seconds, filteredUnits };
   if (typeof module !== 'undefined') module.exports = root.ExplorerCore;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
