@@ -1,0 +1,36 @@
+Id=demo.service
+Names=demo.service
+Description=Fictitious demo with = equals
+LoadState=loaded
+ActiveState=active
+SubState=running
+UnitFileState=enabled
+FragmentPath=/run/systemd/generator/demo.service
+SourcePath=/etc/fictitious/demo.conf
+DropInPaths="/etc/systemd/system/demo.service.d/space name.conf" /run/systemd/system/demo.service.d/override.conf
+DefaultDependencies=yes
+NeedDaemonReload=yes
+Wants=network.target
+Requires=missing.mount
+Requisite=check.service
+BindsTo=sys-devices-demo.device
+PartOf=demo.target
+Conflicts=shutdown.target
+After=network.target missing.mount
+Before=demo.target
+Upholds=helper.service
+TriggeredBy=demo.socket
+Triggers=child.service
+InactiveExitTimestampMonotonic=1000000
+ActiveEnterTimestampMonotonic=1250000
+ActiveExitTimestampMonotonic=0
+InactiveEnterTimestampMonotonic=0
+
+Id=sys-devices-demo.device
+Names=sys-devices-demo.device
+Description=Fictitious sysfs device
+LoadState=loaded
+ActiveState=active
+SubState=plugged
+SysFSPath=/sys/devices/fictitious-demo
+ActiveEnterTimestampMonotonic=800000
