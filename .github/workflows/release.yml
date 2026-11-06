@@ -103,7 +103,7 @@ jobs:
           mkdir -p "$stage/viewer" dist
           cp "target/$TARGET/release/systemd-explorer" README.md LICENSE "$stage/"
           cp -R docs "$stage/docs"
-          cp viewer/index.html viewer/style.css viewer/core.js viewer/timeline-core.js viewer/timeline.js viewer/app.js "$stage/viewer/"
+          cp viewer/index.html viewer/style.css viewer/core.js viewer/timeline-core.js viewer/timeline.js viewer/context.js viewer/app.js "$stage/viewer/"
           cp -R viewer/samples "$stage/viewer/samples"
           tar -C "$RUNNER_TEMP" -czf "dist/$bundle.tar.gz" "$bundle"
       - uses: actions/upload-artifact@v4

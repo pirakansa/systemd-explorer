@@ -43,3 +43,9 @@ Long graph labels are truncated visually; the relationship list, inventory and d
 - **Unit listed as installed with unknown state:** properties are queried only for units already in the loaded inventory. Inspecting an unloaded unit through `systemctl show` can cause it to load, so this collector avoids that query. A unit can disappear between inventory and inspection; collection cannot eliminate this race.
 - **Missing timestamps or device mapping:** older versions, garbage-collected units, permission limits and never-observed transitions are possible. Read the diagnostic instead of inferring a cause.
 - **Unsupported schema / malformed JSON:** the viewer explains the error and clears stale results. Unknown optional fields in version 1 are accepted; future schema versions are rejected explicitly.
+
+## Inspect placement prerequisites
+
+The selected unit's details now include effective activation-request paths (Wants, Requires, BindsTo, Upholds), normalized ordering neighbors, and local device/mount/trigger contacts. Paths explore at most four upstream request hops and 100 queued paths; cycles or limits are reported. They identify candidate request chains, not the actual historical activation cause. Before and After are normalized for the ordering lists and do not imply startup requests or application readiness.
+
+Hardware contacts retain original effective edges within two undirected hops, capped at 100 visited nodes and 100 displayed edges. They are not sysfs parent/child relationships or a device readiness trace. Use the existing per-device sysfs/udev details for collected clues. Exact rule origins, application readiness, initial boot history and configuration attribution remain unimplemented; this iteration improves exploration using existing snapshots without extending collection.
