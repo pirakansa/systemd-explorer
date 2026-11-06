@@ -9,15 +9,17 @@
 - `node --check viewer/core.js` and `node --check viewer/app.js`: passed.
 - `git diff --check`: passed.
 - Release CLI collection in this container wrote a version 1 snapshot to a temporary directory; the viewer's core validator accepted it, output permissions were 0600, and the diagnostic snapshot preserved 8 reference nodes / 6 disk symlink hints / 7 warnings. These are **not** manager-effective relationships.
-- A temporary offline copy of the `vorbere run check` task ran formatting, lint and JS syntax checks, then failed at the vulnerability step: `cargo audit --no-fetch --no-yanked` could not find a local advisory database. The repository's default `cargo audit` fetch was not run because AGENTS.md requires approval before external network access and that approval had not been received. No clean vulnerability-scan result is claimed.
+- The initial offline check failed because no local advisory database was available. During final integration, the default `vorbere run check` fetched the RustSec advisory database and crates.io index and passed, including `cargo audit` with no vulnerability findings.
 
-Before implementation, the required `vorbere` check/test/build tasks failed because the empty repository had no task configuration. The configuration and real tasks are now present. The full default `vorbere run check` remains pending an approved advisory database fetch; run it before opening a PR. Dependencies were added using `cargo add --offline` from the local crate cache.
+Before implementation, the required `vorbere` check/test/build tasks failed because the empty repository had no task configuration. The configuration and real tasks are now present. The full default `vorbere run check` subsequently passed before PR creation. Dependencies were added using `cargo add --offline` from the local crate cache.
 
 Rust tests exercise property/JSON parsing, root mount names (`-.mount`), path quoting/UTF-8, install resets/continuations, effective versus disk evidence, unresolved references, timestamp nullability, generator and reload clues, allowlisted udev data, missing commands, permissions, failed-batch recovery, exhausted budgets, real subprocess timeout/output caps, safe literal argument passing, CLI argument errors, no-overwrite behavior and fixture compatibility.
 
 Node tests cover schema-version rejection, unknown fields, malformed structure, empty imports, unknown references, cycles, directional N-hop traversal, evidence filtering, node/edge caps, semantic categories, unknown timestamps and filters. A small DOM harness additionally exercises local-file import, selection/navigation, controls, stale-data clearing, empty-state messaging, truncation and cross-boot timeline suppression. This harness does not verify actual browser rendering, Content Security Policy or file-origin behavior.
 
 ## Remaining environment-dependent acceptance checks
+
+The manual release workflow adds four Node tests, bringing the current suite to 14 Rust tests and 14 Node tests. Local release checks also exercised actual Cargo metadata (`0.1.0` → `v0.1.0`), parsed every workflow Bash block with `bash -n`, verified the main-branch guard, packaged the existing amd64 executable with the offline viewer in a temporary directory, and verified its checksum. `actionlint 1.7.12` passed for both GitHub workflows. Hosted ARM64 execution, tag creation and publication have not been performed locally. See [the release guide](releases.md).
 
 This container has no `systemctl`, `udevadm`, browser or systemd PID 1. Therefore **real manager collection and real-browser end-to-end acceptance have not been demonstrated**. Do not interpret fixture success or disk-only collection as satisfying that criterion.
 

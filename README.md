@@ -28,6 +28,6 @@ vorbere run build # release collector; viewer needs no build
 
 Install [vorbere](https://github.com/pirakansa/vorbere) and `cargo install cargo-audit --locked` if outside the Dev Container. The underlying Rust gates are `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
 
-See the [user guide](docs/usage.md), [snapshot and graph contract](docs/snapshot.md), [JSON Schema](docs/snapshot.schema.json), and [validation/limitations](docs/validation.md).
+See the [user guide](docs/usage.md), [snapshot and graph contract](docs/snapshot.md), [JSON Schema](docs/snapshot.schema.json), [validation/limitations](docs/validation.md), and [manual amd64/arm64 release guide](docs/releases.md).
 
 Collection is read-only and best effort, with command timeouts and partial-failure diagnostics. It never runs reload/enable/start/stop or exports full unit files, environment variables, credentials, or raw journals. Snapshots still disclose topology, descriptions and paths; inspect them before sharing. Full event history, exact dependency/udev rule attribution, kernel/initramfs tracing, live monitoring, SSH, comparison and automatic placement are outside this MVP.
