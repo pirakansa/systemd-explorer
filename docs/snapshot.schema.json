@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "systemd Explorer snapshot v1",
+  "description": "Unknown fields are accepted. Effective relationships, activation requests, ordering constraints and observed times are distinct concepts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "metadata",
+    "units",
+    "relations",
+    "timings",
+    "devices",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/unit"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "timings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timing"
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/device"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/warning"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "collected_at_unix_ms",
+        "finished_at_unix_ms",
+        "systemd_version",
+        "boot_id",
+        "boot_id_at_end",
+        "scope",
+        "history",
+        "diagnostics"
+      ],
+      "properties": {
+        "collected_at_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "finished_at_unix_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "systemd_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "boot_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "boot_id_at_end": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "scope": {
+          "type": "string"
+        },
+        "history": {
+          "type": "string"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "item",
+        "status",
+        "detail"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "unit": {
+      "type": "object",
+      "required": [
+        "name",
+        "unit_type",
+        "description",
+        "load_state",
+        "active_state",
+        "sub_state",
+        "unit_file_state",
+        "loaded",
+        "installed",
+        "unresolved",
+        "fragment_path",
+        "drop_in_paths",
+        "source_path",
+        "generator_hint",
+        "default_dependencies",
+        "need_daemon_reload",
+        "install_wanted_by",
+        "config_notes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "unit_type": {
+          "type": "string"
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "load_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "active_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sub_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit_file_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "loaded": {
+          "type": "boolean"
+        },
+        "installed": {
+          "type": "boolean"
+        },
+        "unresolved": {
+          "type": "boolean"
+        },
+        "fragment_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "drop_in_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generator_hint": {
+          "type": "boolean"
+        },
+        "default_dependencies": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "need_daemon_reload": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "install_wanted_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "config_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "relation": {
+      "type": "object",
+      "required": [
+        "from",
+        "to",
+        "kind",
+        "evidence",
+        "source",
+        "confidence",
+        "origin"
+      ],
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "timing": {
+      "type": "object",
+      "required": [
+        "unit",
+        "event",
+        "value",
+        "clock",
+        "unit_of_time",
+        "certainty",
+        "source"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "clock": {
+          "type": "string"
+        },
+        "unit_of_time": {
+          "type": "string"
+        },
+        "certainty": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "device": {
+      "type": "object",
+      "required": [
+        "unit",
+        "sysfs_path",
+        "properties",
+        "source",
+        "rule_origin"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string"
+        },
+        "sysfs_path": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "source": {
+          "type": "string"
+        },
+        "rule_origin": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "warning": {
+      "type": "object",
+      "required": [
+        "item",
+        "unit",
+        "message"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

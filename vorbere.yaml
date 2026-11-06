@@ -1,0 +1,23 @@
+version: 1
+tasks:
+  format:
+    run: cargo fmt --check
+    desc: verify Rust formatting
+  lint:
+    run: cargo clippy --all-targets -- -D warnings
+    desc: lint all Rust targets
+  viewer-check:
+    run: node --check viewer/core.js && node --check viewer/app.js && node --check .github/scripts/release-metadata.cjs
+    desc: check offline viewer and release helper JavaScript syntax
+  vulnerability:
+    run: cargo audit
+    desc: scan locked Rust dependencies (requires advisory database network access)
+  check:
+    depends_on: [format, lint, viewer-check, vulnerability]
+    desc: formatting, lint, JavaScript syntax and vulnerability checks
+  test:
+    run: cargo test && node --test viewer/*.test.cjs .github/scripts/*.test.cjs
+    desc: fixture-based collector and viewer tests
+  build:
+    run: cargo build --release
+    desc: build the collector; viewer is already static

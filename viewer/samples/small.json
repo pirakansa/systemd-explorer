@@ -1,0 +1,499 @@
+{
+  "schema_version": 1,
+  "metadata": {
+    "collected_at_unix_ms": 1700000000000,
+    "finished_at_unix_ms": 1700000005000,
+    "systemd_version": "systemd 257 (fictional)",
+    "boot_id": "00000000-0000-4000-8000-000000000001",
+    "boot_id_at_end": "00000000-0000-4000-8000-000000000001",
+    "scope": "system",
+    "history": "Fictitious latest transition observations, not complete boot history.",
+    "diagnostics": [
+      {
+        "item": "fixture",
+        "status": "partial",
+        "detail": "Fictional device and unit data. Unknown helper is intentionally unresolved."
+      }
+    ]
+  },
+  "units": [
+    {
+      "name": "demo.target",
+      "unit_type": "target",
+      "description": "Fictitious demo.target",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "active",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/demo.target",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "demo.service",
+      "unit_type": "service",
+      "description": "Fictitious demo.service",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "running",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/demo.service",
+      "drop_in_paths": [
+        "/etc/systemd/system/demo.service.d/override.conf"
+      ],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "network.target",
+      "unit_type": "target",
+      "description": "Fictitious network.target",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "active",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/network.target",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "data.mount",
+      "unit_type": "mount",
+      "description": "Fictitious data.mount",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "mounted",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/run/systemd/generator/data.mount",
+      "drop_in_paths": [],
+      "source_path": "/etc/fstab",
+      "generator_hint": true,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "sys-devices-demo.device",
+      "unit_type": "device",
+      "description": "Fictitious sys-devices-demo.device",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "plugged",
+      "unit_file_state": null,
+      "loaded": true,
+      "installed": false,
+      "unresolved": false,
+      "fragment_path": null,
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": false,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "demo.socket",
+      "unit_type": "socket",
+      "description": "Fictitious demo.socket",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "listening",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/demo.socket",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "demo.timer",
+      "unit_type": "timer",
+      "description": "Fictitious demo.timer",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "waiting",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/demo.timer",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "demo.path",
+      "unit_type": "path",
+      "description": "Fictitious demo.path",
+      "load_state": "loaded",
+      "active_state": "active",
+      "sub_state": "waiting",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/demo.path",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "shutdown.target",
+      "unit_type": "target",
+      "description": "Fictitious shutdown.target",
+      "load_state": "loaded",
+      "active_state": "inactive",
+      "sub_state": "dead",
+      "unit_file_state": "static",
+      "loaded": true,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/shutdown.target",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [],
+      "config_notes": [
+        "Fictitious data. Effective origins are undetermined; disk files can differ from loaded configuration."
+      ]
+    },
+    {
+      "name": "not-loaded.service",
+      "unit_type": "service",
+      "description": "Fictitious not-loaded.service",
+      "load_state": null,
+      "active_state": null,
+      "sub_state": null,
+      "unit_file_state": "disabled",
+      "loaded": false,
+      "installed": true,
+      "unresolved": false,
+      "fragment_path": "/usr/lib/systemd/system/not-loaded.service",
+      "drop_in_paths": [],
+      "source_path": null,
+      "generator_hint": false,
+      "default_dependencies": true,
+      "need_daemon_reload": false,
+      "install_wanted_by": [
+        "demo.target"
+      ],
+      "config_notes": [
+        "Installed only. Runtime state unknown. WantedBy is an installation hint, not an effective dependency."
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "from": "demo.target",
+      "to": "demo.service",
+      "kind": "Wants",
+      "evidence": "effective",
+      "source": "systemctl show: Wants (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "network.target",
+      "kind": "After",
+      "evidence": "effective",
+      "source": "systemctl show: After (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "data.mount",
+      "kind": "Requires",
+      "evidence": "effective",
+      "source": "systemctl show: Requires (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "data.mount",
+      "kind": "After",
+      "evidence": "effective",
+      "source": "systemctl show: After (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "data.mount",
+      "to": "sys-devices-demo.device",
+      "kind": "BindsTo",
+      "evidence": "effective",
+      "source": "systemctl show: BindsTo (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "data.mount",
+      "to": "sys-devices-demo.device",
+      "kind": "After",
+      "evidence": "effective",
+      "source": "systemctl show: After (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "demo.target",
+      "kind": "PartOf",
+      "evidence": "effective",
+      "source": "systemctl show: PartOf (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "shutdown.target",
+      "kind": "Conflicts",
+      "evidence": "effective",
+      "source": "systemctl show: Conflicts (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.socket",
+      "to": "demo.service",
+      "kind": "Triggers",
+      "evidence": "effective",
+      "source": "systemctl show: Triggers (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "demo.socket",
+      "kind": "TriggeredBy",
+      "evidence": "effective",
+      "source": "systemctl show: TriggeredBy (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.timer",
+      "to": "demo.service",
+      "kind": "Triggers",
+      "evidence": "effective",
+      "source": "systemctl show: Triggers (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.path",
+      "to": "demo.service",
+      "kind": "Triggers",
+      "evidence": "effective",
+      "source": "systemctl show: Triggers (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.target",
+      "to": "demo.service",
+      "kind": "Wants",
+      "evidence": "disk_symlink",
+      "source": "/etc/systemd/system/demo.target.wants/demo.service (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.target",
+      "to": "not-loaded.service",
+      "kind": "Wants",
+      "evidence": "install_hint",
+      "source": "/etc/systemd/system/demo.target.wants/demo.service (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    },
+    {
+      "from": "demo.service",
+      "to": "unknown-helper.service",
+      "kind": "Requisite",
+      "evidence": "effective",
+      "source": "systemctl show: Requisite (fictional)",
+      "confidence": "observed",
+      "origin": "undetermined"
+    }
+  ],
+  "timings": [
+    {
+      "unit": "demo.target",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 430000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "demo.service",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 860000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "network.target",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 1290000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "data.mount",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 1720000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "sys-devices-demo.device",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 2150000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "demo.socket",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 2580000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "demo.timer",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 3010000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "demo.path",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": 3440000,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "observed",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "shutdown.target",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": null,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "unknown",
+      "source": "Fictitious manager timestamp"
+    },
+    {
+      "unit": "not-loaded.service",
+      "event": "ActiveEnterTimestampMonotonic",
+      "value": null,
+      "clock": "boot_monotonic",
+      "unit_of_time": "microseconds",
+      "certainty": "unknown",
+      "source": "Fictitious manager timestamp"
+    }
+  ],
+  "devices": [
+    {
+      "unit": "sys-devices-demo.device",
+      "sysfs_path": "/sys/devices/fictitious-demo",
+      "properties": {
+        "SYSTEMD_WANTS": "demo.service",
+        "SYSTEMD_READY": "1",
+        "TAGS": ":systemd:"
+      },
+      "source": "fictitious fixture",
+      "rule_origin": "undetermined; no event history"
+    }
+  ],
+  "warnings": [
+    {
+      "item": "fixture",
+      "unit": null,
+      "message": "All data is fictitious. Missing timing is unknown, not evidence that a unit never started."
+    },
+    {
+      "item": "properties",
+      "unit": "not-loaded.service",
+      "message": "Runtime properties not queried for an unloaded installed unit."
+    }
+  ]
+}

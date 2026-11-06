@@ -1,0 +1,23 @@
+name: CI
+on: [push, pull_request, workflow_call]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install validation tools
+        run: |
+          cargo install cargo-audit --locked
+          curl -fsSL https://raw.githubusercontent.com/pirakansa/vorbere/main/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: vorbere run check
+      - run: vorbere run test
+      - run: vorbere run build
