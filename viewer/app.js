@@ -9,6 +9,7 @@
   const timeline = globalThis.ExplorerTimeline.create({ document, element: $('timeline'), onSelect: name => {
     choose(name); $('unit-exploration').scrollIntoView({ block: 'start', behavior: 'smooth' });
   } });
+  const structure = globalThis.ExplorerStructure.create({document,element:$('structure-view'),onInspect:name=>{choose(name);$('unit-exploration').scrollIntoView({block:'start'});}});
   const colors = { request: '#1466ab', ordering: '#9a5900', other: '#7954a1' };
   const RELATION_PAGE_SIZE = 40;
   const GRAPH_MAX_NODES = 25, GRAPH_MAX_EDGES = 80;
@@ -54,13 +55,13 @@
       for (const d of Array.isArray(data.metadata.diagnostics) ? data.metadata.diagnostics : []) if (d) diagnostic.append(el('div', `${d.item}: ${d.status} — ${d.detail}`));
       for (const w of data.warnings) if (w) diagnostic.append(el('div', `${w.unit || 'snapshot'} / ${w.item}: ${w.message}`, 'warning'));
       message(idx.units.size ? `Loaded ${file.name}. ${data.warnings.length ? 'Partial observations: inspect collection warnings.' : 'Review diagnostics for collection coverage.'}` : 'Snapshot contains no units. Collection diagnostics may explain missing data.');
-      renderInventory(); renderTimeline(); renderRelations(); renderSelection(); renderHardware(); setWorkspace(workspace); resetView();
+      structure.setSnapshot(idx); renderInventory(); renderTimeline(); renderRelations(); renderSelection(); renderHardware(); setWorkspace(workspace); resetView();
     } catch (e) {
       if (token !== loadToken) return;
       data = null; idx = null; selected = null; graph = null; positions.clear();
       for (const id of ['units', 'overview', 'detail', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
       $('more').hidden = true; $('list-count').textContent = ''; $('graph-status').textContent = 'No valid snapshot loaded.';
-      renderRelations(); renderSelection(); renderHardware(); timeline.setSnapshot(null); setWorkspace(workspace);
+      structure.setSnapshot(null); renderRelations(); renderSelection(); renderHardware(); timeline.setSnapshot(null); setWorkspace(workspace);
       draw(); message('Could not load snapshot: ' + e.message, true);
     }
   }
@@ -194,16 +195,18 @@
   function setWorkspace(mode) {
     workspace = mode;
     $('empty-workspace').hidden = Boolean(idx);
+    $('structure-workspace').hidden = !idx || mode !== 'structure';
     $('system-timeline').hidden = !idx || mode !== 'overview';
     $('unit-exploration').hidden = !idx || mode !== 'service';
     $('hardware-workspace').hidden = !idx || mode !== 'hardware';
     const text = {
+      structure: ['System structure','Start with grouped effective relations, expand a unit type or focus a target, then inspect a unit. Group depth is not boot order.'],
       overview: ['Boot overview', 'Choose a time window, then click a unit to investigate its connections. Points are observations, not startup durations.'],
       service: ['Plan a service', 'Choose an existing unit to inspect what could start it and what it waits for. No placement is chosen automatically.'],
       hardware: ['Explore hardware', 'Choose a device or mount. Inspect observed mappings and contacts; graph proximity does not prove physical parentage or readiness.'],
     };
     $('workspace-title').textContent = text[mode][0]; $('workspace-hint').textContent = text[mode][1];
-    for (const name of ['overview', 'service', 'hardware']) $('task-' + name).setAttribute('aria-pressed', String(name === mode));
+    for (const name of ['structure', 'overview', 'service', 'hardware']) $('task-' + name).setAttribute('aria-pressed', String(name === mode));
     if (mode === 'hardware') renderHardware();
     if (mode === 'overview') timeline.refresh();
     if (mode === 'service') resetView();
@@ -351,7 +354,7 @@
     }
   }
   function renderTimeline() { timeline.setSnapshot(data, idx.units); }
-  for (const mode of ['overview', 'service', 'hardware']) $('task-' + mode).addEventListener('click', () => setWorkspace(mode));
+  for (const mode of ['structure', 'overview', 'service', 'hardware']) $('task-' + mode).addEventListener('click', () => setWorkspace(mode));
   $('contact-search').addEventListener('input',renderHardware); $('contact-requests').addEventListener('change',renderHardware);
   $('hardware-search').addEventListener('input', () => { hardwarePage = 50; renderHardware(); });
   $('hardware-more').addEventListener('click', () => { hardwarePage += 50; renderHardware(); });
@@ -387,5 +390,5 @@
     }
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
-  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null); setWorkspace('overview'); renderSelection(); renderHardware();
+  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null); structure.setSnapshot(null); setWorkspace('overview'); renderSelection(); renderHardware();
 })();

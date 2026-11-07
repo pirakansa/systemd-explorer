@@ -195,3 +195,25 @@ main > .selection-summary { padding: 12px 16px; }
  .comparison-scroll tr { border-bottom: 1px solid var(--border); }
  .comparison-scroll td::before { content: attr(data-label) ": "; font-weight: 600; }
 }
+.workspace-nav { grid-template-columns: repeat(4,minmax(0,1fr)); }
+#structure-workspace { margin: 0 24px 24px; padding: 16px; background: white; border: 1px solid var(--border); border-radius: 10px; }
+#structure-workspace > h2 { font-size: 16px; }
+.structure-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.structure-controls label { display: block; font-size: 12px; }
+.structure-controls select { display: block; padding: 6px; max-width: min(360px,75vw); }
+#structure-status { font-size: 13px; margin: 8px 0; }
+#structure-scope { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; overflow-wrap: anywhere; }
+.structure-groups { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 8px; margin: 12px 0; }
+.structure-groups button { padding: 12px; text-align: left; background: #f1f6fc; border-color: #b8cee1; }
+.structure-groups button[aria-pressed="true"] { background: #d8eaff; border-color: var(--blue); }
+#structure-view > label { display: block; font-size: 12px; }
+#structure-search { display: block; width: min(100%,480px); padding: 7px; border: 1px solid var(--border); border-radius: 5px; }
+.structure-links { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 6px; max-height: 280px; overflow: auto; }
+.structure-links button { text-align: left; padding: 10px; overflow-wrap: anywhere; }
+.structure-links .ordering { color: var(--amber); border-style: dashed; }
+.structure-unit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px; border-bottom: 1px solid var(--border); }
+.structure-unit > span { flex: 1 1 260px; overflow-wrap: anywhere; }
+.structure-unit small { color: var(--muted); }
+#structure-units, #structure-edges { max-height: 320px; overflow: auto; margin-top: 10px; }
+#structure-edges .relation button { overflow-wrap: anywhere; max-width: 100%; text-align: left; }
+@media (max-width:650px) { .workspace-nav {grid-template-columns:repeat(2,minmax(0,1fr));} #structure-workspace {margin:0 12px 12px;padding:12px;} .structure-links {grid-template-columns:minmax(0,1fr);} }

@@ -49,7 +49,7 @@ function setup() {
     const input = new Element('input'); input.value = value; input.checked = value === 'effective'; get('evidence').append(input);
   }
   const context = vm.createContext({ document, window, console });
-  for (const script of ['core.js', 'timeline-core.js', 'timeline.js', 'context.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
+  for (const script of ['core.js', 'timeline-core.js', 'timeline.js', 'context.js', 'structure-core.js', 'structure.js', 'app.js']) vm.runInContext(fs.readFileSync(__dirname + '/' + script, 'utf8'), context, { filename: script });
   async function load(text, name = 'test.json') {
     get('file').fire('change', { target: { files: [{ name, size: text.length, text: async () => text }] } });
     await new Promise(resolve => setImmediate(resolve));
@@ -317,4 +317,17 @@ test('selected summary precedes exploration and full-observation shortcut opens 
  get('selection-content').querySelectorAll('button').find(b=>b.textContent==='Open full observations').fire('click');
  const technical=get('detail').querySelectorAll('details').find(d=>d.className==='technical-details');assert(technical.open);assert(technical.scrolledIntoView);
  get('task-hardware').fire('click');get('contact-search').value='no-such-neighbor';get('contact-search').fire('input');assert.match(get('hardware-selected').textContent,/No contacts match/);
+});
+test('system structure expands groups and target scopes into unit inspection',async()=>{
+ const {get,load}=setup();await load(fs.readFileSync(__dirname+'/samples/medium.json','utf8'));
+ get('task-structure').fire('click');assert.equal(get('structure-workspace').hidden,false);assert.equal(get('system-timeline').hidden,true);
+ assert.match(get('structure-status').textContent,/effective property observations/);
+ get('structure-groups').querySelectorAll('button').find(b=>b.textContent.startsWith('service ·')).fire('click');
+ assert(get('structure-units').querySelectorAll('button').length<=81);
+ get('structure-search').value='worker-279';get('structure-search').fire('input');assert.match(get('structure-units').textContent,/worker-279.service/);
+ get('structure-units').querySelectorAll('button').find(b=>b.textContent==='Map connections').fire('click');assert.match(get('structure-scope').textContent,/worker-279.service/);
+ get('structure-scope').querySelectorAll('button')[0].fire('click');assert.equal(get('unit-exploration').hidden,false);assert.match(get('selection-content').textContent,/worker-279.service/);
+ get('task-structure').fire('click');get('structure-target').value='demo.target';get('structure-target').fire('change');assert.match(get('structure-scope').textContent,/demo.target/);
+ get('structure-mode').value='ordering';get('structure-mode').fire('change');assert.match(get('structure-status').textContent,/effective property observations/);
+ await load('{bad');assert.match(get('structure-status').textContent,/Open a snapshot/);assert.equal(get('structure-connections').children.length,0);
 });
