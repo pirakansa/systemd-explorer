@@ -19,3 +19,15 @@ test('focused scope is one hop and empty observations remain unknown',()=>{
  const idx=C.index(data),model=S.summarize(idx,{focus:'root.target'});assert.equal(model.records,2);assert.equal(model.scopeUnits,2);assert(!model.groups.some(g=>g.type==='device'));
  const unused=S.summarize(idx,{focus:'unused.timer'});assert.equal(unused.records,0);assert.equal(unused.groups[0].units[0].name,'unused.timer');
 });
+test('target cards preserve shared membership, direction, evidence and deterministic order',()=>{
+ const snapshot={...data,units:[...data.units,{name:'second.target',unit_type:'target'},{name:'idle.target',unit_type:'target'}],relations:[...data.relations,edge('second.target','worker.service','Wants'),edge('root.target','second.target','Requires')]};
+ const model=S.targets(C.index(snapshot));assert.equal(model.totalTargets,3);assert.equal(model.unobserved,1);
+ for(const name of ['root.target','second.target'])assert(model.cards.find(t=>t.unit.name===name).bundles.some(b=>b.direction==='outgoing'&&b.units.some(u=>u.name==='worker.service')));
+ assert(model.cards.find(t=>t.unit.name==='second.target').links.some(l=>l.direction==='incoming'&&l.unit.name==='root.target'));
+ assert.equal(model.records,4);assert.deepEqual(model,S.targets(C.index({...snapshot,relations:[...snapshot.relations].reverse()})));
+});
+test('target ordering normalizes After while retaining original records and scoped cards',()=>{
+ const idx=C.index({...data,relations:[edge('root.target','worker.service','After'),edge('worker.service','root.target','Before')]});
+ const model=S.targets(idx,{category:'ordering',focus:'worker.service'});assert.equal(model.cards.length,1);
+ const bundle=model.cards[0].bundles[0];assert.equal(bundle.direction,'incoming');assert.equal(bundle.records.length,2);assert(bundle.records.every(r=>r.to==='root.target'));assert.equal(S.targets(idx).cards.length,0);
+});

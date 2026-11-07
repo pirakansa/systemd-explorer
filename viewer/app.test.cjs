@@ -322,6 +322,7 @@ test('system structure expands groups and target scopes into unit inspection',as
  const {get,load}=setup();await load(fs.readFileSync(__dirname+'/samples/medium.json','utf8'));
  get('task-structure').fire('click');assert.equal(get('structure-workspace').hidden,false);assert.equal(get('system-timeline').hidden,true);
  assert.match(get('structure-status').textContent,/effective property observations/);
+ get('structure-grouping').value='type';get('structure-grouping').fire('change');
  get('structure-groups').querySelectorAll('button').find(b=>b.textContent.startsWith('service ·')).fire('click');
  assert(get('structure-units').querySelectorAll('button').length<=81);
  get('structure-search').value='worker-279';get('structure-search').fire('input');assert.match(get('structure-units').textContent,/worker-279.service/);
@@ -330,4 +331,16 @@ test('system structure expands groups and target scopes into unit inspection',as
  get('task-structure').fire('click');get('structure-target').value='demo.target';get('structure-target').fire('change');assert.match(get('structure-scope').textContent,/demo.target/);
  get('structure-mode').value='ordering';get('structure-mode').fire('change');assert.match(get('structure-status').textContent,/effective property observations/);
  await load('{bad');assert.match(get('structure-status').textContent,/Open a snapshot/);assert.equal(get('structure-connections').children.length,0);
+});
+
+test('target cards expand shared groups and restore previous investigation scope',async()=>{
+ const {get,load}=setup();await load(fs.readFileSync(__dirname+'/samples/medium.json','utf8'));
+ assert.equal(get('structure-grouping').value,'target');
+ assert(get('structure-target-map').textContent.includes('demo.target'));
+ const bundle=get('structure-target-map').querySelectorAll('button').find(b=>b.textContent.includes('service · Wants'));
+ assert(bundle);bundle.fire('click');assert.match(get('structure-units').textContent,/worker-/);
+ assert.match(get('structure-scope').textContent,/Connections around demo.target/);
+ get('structure-back').fire('click');assert.match(get('structure-scope').textContent,/Whole system/);
+ assert.equal(get('structure-back').disabled,true);
+ await load('{bad');assert.equal(get('structure-target-map').children.length,0);
 });
