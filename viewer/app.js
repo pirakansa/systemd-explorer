@@ -79,7 +79,7 @@
   }
   function choose(name) {
     if (!idx || !idx.units.has(name)) return;
-    selected = name; $('contact-search').value = ''; renderSelection(); if (workspace !== 'hardware') setWorkspace('service'); timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph(); renderHardware();
+    selected = name; structure.select(name); $('contact-search').value = ''; renderSelection(); if (workspace !== 'hardware') setWorkspace('service'); timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph(); renderHardware();
   }
   function renderSelection() {
     const out=$('selection-content');out.replaceChildren();
@@ -88,6 +88,7 @@
     out.append(el('h3',u.name),el('span',(u.active_state||'Unknown state')+' · '+(u.unit_file_state||'Enablement unknown'),'selection-status'));
     if(u.unit_type==='service')out.append(el('p',(runtime.Type||'Unknown startup type')+' — '+X.startup(runtime.Type),'muted'));
     out.append(el('p','Conditions: '+X.condition(runtime,'Condition'),'muted'));
+    const locate=el('button','Show in system structure');locate.id='selection-locate';locate.addEventListener('click',()=>{structure.locateSelected();setWorkspace('structure');$('structure-workspace').scrollIntoView({block:'start'});});out.append(locate);
     const full=el('button','Open full observations');full.addEventListener('click',()=>{const panel=Array.from($('detail').querySelectorAll('details')).find(x=>x.className==='technical-details');if(panel){panel.open=true;panel.scrollIntoView({block:'start'});}});out.append(full);
     const rows=X.comparison(idx,selected);out.append(el('p',rows.length+' related units · all effective direct observations, independent of list filters. Requests and ordering are independent. Missing means not observed, not a configuration error.','muted'));
     const scroll=el('div',undefined,'comparison-scroll'),table=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');
