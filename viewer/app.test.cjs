@@ -344,3 +344,35 @@ test('target cards expand shared groups and restore previous investigation scope
  assert.equal(get('structure-back').disabled,true);
  await load('{bad');assert.equal(get('structure-target-map').children.length,0);
 });
+test('selected unit links service inspection to shared target highlights and restores scope',async()=>{
+ const {get,load}=setup();const data=JSON.parse(small);
+ data.units.push({name:'shared.target',unit_type:'target',active_state:'active'});
+ data.relations.push({from:'shared.target',to:'demo.service',kind:'Wants',evidence:'effective',source:'fictional',origin:'undetermined',confidence:'observed'});
+ await load(JSON.stringify(data));get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+ assert.match(get('structure-selection').textContent,/Selected unit: demo.service/);
+ const cards=get('structure-target-map').querySelectorAll('article').filter(c=>c.className.includes('structure-highlight'));
+ assert.equal(cards.length,2);assert(cards.every(c=>c.textContent.includes('Directly related to selected unit')));
+ get('selection-locate').fire('click');assert.equal(get('structure-workspace').hidden,false);assert.match(get('structure-scope').textContent,/Connections around demo.service/);
+ get('structure-back').fire('click');assert.match(get('structure-scope').textContent,/Whole system/);assert.match(get('structure-selection').textContent,/demo.service/);
+ get('structure-mode').value='ordering';get('structure-mode').fire('change');assert(!get('structure-target-map').querySelectorAll('article').some(c=>c.textContent.includes('shared.target')&&c.className.includes('structure-highlight')));
+ await load('{bad');assert(!get('structure-selection').textContent.includes('demo.service'));
+});
+test('locating an isolated unit opens and highlights its type without inventing target membership',async()=>{
+ const {get,load}=setup();const data=JSON.parse(small);data.units.push({name:'isolated.service',unit_type:'service'});await load(JSON.stringify(data));
+ get('units').children.find(b=>b.textContent.startsWith('isolated.service')).fire('click');get('selection-locate').fire('click');
+ assert.equal(get('structure-grouping').value,'type');assert.match(get('structure-selection').textContent,/No effective direct relationships collected/);
+ assert(get('structure-units').querySelectorAll('div').some(r=>r.className.includes('structure-highlight')&&r.textContent.includes('isolated.service')));
+ await load(small);assert(!get('structure-selection').textContent.includes('isolated.service'));
+});
+test('selection promotes matching target beyond pagination without changing investigation scope',async()=>{
+ const {get,load}=setup();const data=JSON.parse(small);
+ for(let i=0;i<15;i++){data.units.push({name:'extra-'+i+'.target',unit_type:'target'});for(let j=0;j<3;j++)data.relations.push({from:'extra-'+i+'.target',to:'demo.target',kind:'Wants',evidence:'effective'});}
+ data.units.push({name:'zz-selected.service',unit_type:'service'},{name:'zz-related.target',unit_type:'target'});data.relations.push({from:'zz-related.target',to:'zz-selected.service',kind:'Wants',evidence:'effective'});
+ await load(JSON.stringify(data));assert(!get('structure-target-map').querySelectorAll('article').some(c=>c.textContent.includes('zz-related.target')));
+ get('units').children.find(b=>b.textContent.startsWith('zz-selected.service')).fire('click');
+ assert.match(get('structure-scope').textContent,/Whole system/);assert.equal(get('structure-target-map').querySelectorAll('article').length,12);
+ assert(get('structure-target-map').querySelectorAll('article')[0].textContent.includes('zz-related.target'));
+ get('structure-target').value='extra-0.target';get('structure-target').fire('change');assert.match(get('structure-selection').textContent,/Outside the current scope/);
+ get('selection-locate').fire('click');assert.match(get('structure-scope').textContent,/Connections around zz-selected.service/);
+ get('structure-back').fire('click');assert.match(get('structure-scope').textContent,/Connections around extra-0.target/);
+});

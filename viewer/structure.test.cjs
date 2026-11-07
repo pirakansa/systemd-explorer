@@ -31,3 +31,10 @@ test('target ordering normalizes After while retaining original records and scop
  const model=S.targets(idx,{category:'ordering',focus:'worker.service'});assert.equal(model.cards.length,1);
  const bundle=model.cards[0].bundles[0];assert.equal(bundle.direction,'incoming');assert.equal(bundle.records.length,2);assert(bundle.records.every(r=>r.to==='root.target'));assert.equal(S.targets(idx).cards.length,0);
 });
+test('selection location keeps shared targets, category boundaries and scope distinct',()=>{
+ const snapshot={...data,units:[...data.units,{name:'second.target',unit_type:'target'}],relations:[...data.relations,edge('second.target','worker.service','Wants'),edge('second.target','disk.device','After')]};
+ const idx=C.index(snapshot),location=S.locate(idx,'worker.service');assert.deepEqual(location.targets,['root.target','second.target']);assert.equal(location.records.length,4);
+ const ordering=S.locate(idx,'disk.device',{category:'ordering',focus:'unused.timer'});assert.deepEqual(ordering.targets,['second.target']);assert.equal(ordering.inScope,false);assert.equal(ordering.records.length,3);
+ assert.deepEqual(S.locate(idx,'unused.timer').targets,[]);assert.equal(S.locate(idx,'unused.timer').totalRecords,0);assert.equal(S.locate(idx,'absent.service'),null);
+ assert.equal(S.locate(idx,'unknown.mount').totalRecords,0);
+});

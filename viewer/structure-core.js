@@ -45,11 +45,20 @@
     let chosen=null;if(focus){chosen=new Set([focus]);for(const e of idx.relations)if(e.evidence==='effective'&&(category==='all'||C.category(e.kind)===category)&&(e.from===focus||e.to===focus)){chosen.add(e.from);chosen.add(e.to);}}
     const sortRecords=(a,b)=>a.from.localeCompare(b.from)||a.to.localeCompare(b.to)||a.edge.kind.localeCompare(b.edge.kind)||String(a.edge.source||'').localeCompare(String(b.edge.source||''));
     const all=[...map.values()];
-    const cards=all.filter(t=>t.records&&(!chosen||chosen.has(t.unit.name))).map(t=>({...t,
+    const cards=all.filter(t=>(t.records||t.unit.name===focus)&&(!chosen||chosen.has(t.unit.name))).map(t=>({...t,
       links:[...t.links.values()].map(l=>({...l,records:l.records.sort(sortRecords)})).sort((a,b)=>a.direction.localeCompare(b.direction)||a.unit.name.localeCompare(b.unit.name)||a.kind.localeCompare(b.kind)),
       bundles:[...t.bundles.values()].map(b=>({...b,units:[...b.units.values()].sort((a,b)=>a.name.localeCompare(b.name)),records:b.records.sort(sortRecords)})).sort((a,b)=>a.direction.localeCompare(b.direction)||b.units.length-a.units.length||a.type.localeCompare(b.type)||a.kind.localeCompare(b.kind)),
     })).sort((a,b)=>Number(b.unit.name===focus)-Number(a.unit.name===focus)||b.outgoing-a.outgoing||a.unit.name.localeCompare(b.unit.name));
     return {cards,records,unobserved:all.filter(t=>!t.records).length,totalTargets:all.length};
   }
-  root.ExplorerStructureData={summarize,targets};if(typeof module!=='undefined')module.exports=root.ExplorerStructureData;
+  function locate(idx,name,{category='request',focus=null}={}){
+    const unit=idx.units.get(name);if(!unit)return null;
+    const all=idx.relations.filter(e=>e.evidence==='effective'&&(e.from===name||e.to===name));
+    const records=all.filter(e=>category==='all'||C.category(e.kind)===category);
+    const targetNames=new Set(unit.unit_type==='target'?[name]:[]);
+    for(const e of records)for(const other of [e.from,e.to])if(idx.units.get(other)?.unit_type==='target')targetNames.add(other);
+    const visible=new Set(summarize(idx,{category,focus}).groups.flatMap(g=>g.units.map(u=>u.name)));
+    return {unit,records,totalRecords:all.length,targets:[...targetNames].sort(),inScope:visible.has(name)};
+  }
+  root.ExplorerStructureData={summarize,targets,locate};if(typeof module!=='undefined')module.exports=root.ExplorerStructureData;
 })(typeof globalThis!=='undefined'?globalThis:this);
