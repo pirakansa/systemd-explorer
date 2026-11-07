@@ -3,6 +3,7 @@
   'use strict';
   const C = globalThis.ExplorerCore, $ = id => document.getElementById(id);
   let data = null, idx = null, selected = null, pageSize = 100, graph = null, positions = new Map();
+  let workspace = 'overview', hardwarePage = 50;
   let zoom = 1, pan = { x: 0, y: 0 }, drag = null, loadToken = 0;
   const canvas = $('graph'), ctx = canvas.getContext('2d');
   const timeline = globalThis.ExplorerTimeline.create({ document, element: $('timeline'), onSelect: name => {
@@ -30,7 +31,7 @@
       if (token !== loadToken) return;
       const parsed = C.validate(JSON.parse(text));
       data = parsed; idx = C.index(data); selected = null; pageSize = 100; graph = null; positions.clear();
-      $('search').value = ''; $('relations-search').value = ''; $('detail').textContent = 'Select a unit from the inventory.';
+      $('search').value = ''; $('relations-search').value = ''; $('hardware-search').value = ''; hardwarePage = 50; $('detail').textContent = 'Select a unit from the inventory.';
       $('graph-status').textContent = 'Select a unit to explore a bounded neighborhood.';
       setOptions('type', Array.from(idx.units.values()).map(u => u.unit_type || 'unknown'), 'All types');
       setOptions('state', Array.from(idx.units.values()).map(u => u.active_state || 'unknown'), 'All states');
@@ -53,13 +54,13 @@
       for (const d of Array.isArray(data.metadata.diagnostics) ? data.metadata.diagnostics : []) if (d) diagnostic.append(el('div', `${d.item}: ${d.status} — ${d.detail}`));
       for (const w of data.warnings) if (w) diagnostic.append(el('div', `${w.unit || 'snapshot'} / ${w.item}: ${w.message}`, 'warning'));
       message(idx.units.size ? `Loaded ${file.name}. ${data.warnings.length ? 'Partial observations: inspect collection warnings.' : 'Review diagnostics for collection coverage.'}` : 'Snapshot contains no units. Collection diagnostics may explain missing data.');
-      renderInventory(); renderTimeline(); renderRelations(); resetView();
+      renderInventory(); renderTimeline(); renderRelations(); renderHardware(); setWorkspace(workspace); resetView();
     } catch (e) {
       if (token !== loadToken) return;
       data = null; idx = null; selected = null; graph = null; positions.clear();
       for (const id of ['units', 'overview', 'detail', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
       $('more').hidden = true; $('list-count').textContent = ''; $('graph-status').textContent = 'No valid snapshot loaded.';
-      renderRelations(); timeline.setSnapshot(null);
+      renderRelations(); renderHardware(); timeline.setSnapshot(null); setWorkspace(workspace);
       draw(); message('Could not load snapshot: ' + e.message, true);
     }
   }
@@ -77,64 +78,76 @@
   }
   function choose(name) {
     if (!idx || !idx.units.has(name)) return;
-    selected = name; timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph();
+    selected = name; if (workspace !== 'hardware') setWorkspace('service'); timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph(); renderHardware();
   }
   function renderDetails() {
     const u = idx.units.get(selected), out = $('detail'); out.replaceChildren(el('h3', u.name));
-    const dl = el('dl'); out.append(dl);
+    out.append(el('p', u.description || 'Description not collected'), el('p', (u.active_state || 'Unknown state') + ' · ' + (u.unit_file_state || 'Enablement unknown'), 'selection-status'));
+    const technical = el('details', undefined, 'technical-details'); technical.append(el('summary', 'Configuration, runtime results and all observations'));
+    const warningCount = data.warnings.filter(w => w && w.unit === selected).length;
+    if (warningCount) out.append(el('p', warningCount + ' collection warnings — open observations below for details.', 'warning'));
+    const dl = el('dl'); technical.append(dl);
     for (const [label, key] of [['Type', 'unit_type'], ['Description', 'description'], ['Load state', 'load_state'], ['Active state', 'active_state'], ['Sub state', 'sub_state'], ['Unit file state', 'unit_file_state'], ['FragmentPath (manager observation)', 'fragment_path'], ['SourcePath', 'source_path']]) field(dl, label, u[key]);
     field(dl, 'Inventory', `${u.loaded ? 'Manager loaded inventory' : 'Not observed loaded'}; ${u.installed ? 'installed inventory' : 'not observed installed'}${u.unresolved ? '; unresolved reference' : ''}`);
-    out.append(el('h3', 'Startup, conditions and result'));
+    technical.append(el('h3', 'Startup, conditions and result'));
     const runtime = u.runtime_properties || {};
-    const runtimeList = el('dl'); out.append(runtimeList);
+    const runtimeList = el('dl'); technical.append(runtimeList);
     const fields = ['ConditionResult', 'AssertResult', 'ConditionTimestampMonotonic', 'AssertTimestampMonotonic'];
     if (u.unit_type === 'service') fields.push('Type', 'RemainAfterExit', 'NotifyAccess', 'Result', 'ExecMainCode', 'ExecMainStatus');
     if (u.unit_type === 'mount') fields.push('Where', 'What', 'Type', 'Result');
     for (const key of fields) field(runtimeList, key, runtime[key]);
-    out.append(el('p', 'Manager observations, not application health. Condition/assert timestamps are boot-monotonic microseconds; zero or missing means no evaluation timestamp collected. Results can refer to the latest attempt. ExecMainCode and ExecMainStatus must be interpreted together (exit status versus signal). Type describes service startup semantics, not proof that dependencies are ready. Missing fields require recollection or may be unsupported.', 'muted'));
+    technical.append(el('p', 'Manager observations, not application health. Condition/assert timestamps are boot-monotonic microseconds; zero or missing means no evaluation timestamp collected. Results can refer to the latest attempt. ExecMainCode and ExecMainStatus must be interpreted together (exit status versus signal). Type describes service startup semantics, not proof that dependencies are ready. Missing fields require recollection or may be unsupported.', 'muted'));
     field(dl, 'DropInPaths', (u.drop_in_paths || []).join('\n'));
     field(dl, 'Generator clue', u.generator_hint ? 'Fragment path is in a runtime generator directory; exact origin undetermined.' : 'No positive clue collected (not proof of absence).');
     field(dl, 'DefaultDependencies', u.default_dependencies === undefined || u.default_dependencies === null ? null : String(u.default_dependencies) + ' (does not attribute individual edges)');
     field(dl, 'NeedDaemonReload', u.need_daemon_reload === undefined || u.need_daemon_reload === null ? null : String(u.need_daemon_reload));
     field(dl, '[Install] WantedBy (fragment-only disk hint)', (u.install_wanted_by || []).join('\n'));
-    for (const note of u.config_notes || []) out.append(el('p', note, 'muted'));
-    out.append(el('h3', 'Observed times'));
+    for (const note of u.config_notes || []) technical.append(el('p', note, 'muted'));
+    technical.append(el('h3', 'Observed times'));
     const times = data.timings.filter(t => t.unit === selected);
-    if (!times.length) out.append(el('p', 'Unknown / not collected. No conclusion about activation history.'));
+    if (!times.length) technical.append(el('p', 'Unknown / not collected. No conclusion about activation history.'));
     for (const t of times) {
       const s = C.seconds(t);
-      out.append(el('p', `${t.event}: ${s === null ? 'unknown or unsupported clock/certainty' : s.toFixed(6) + ' seconds since boot'} · ${t.source || 'source unknown'}`));
+      technical.append(el('p', `${t.event}: ${s === null ? 'unknown or unsupported clock/certainty' : s.toFixed(6) + ' seconds since boot'} · ${t.source || 'source unknown'}`));
     }
     for (const d of data.devices.filter(d => d.unit === selected)) {
-      out.append(el('h3', 'Device / udev observation'), el('p', d.sysfs_path || 'Sysfs path unknown'), el('pre', JSON.stringify(d.properties || {}, null, 2)), el('p', 'Rule origin: ' + (d.rule_origin || 'undetermined')));
+      technical.append(el('h3', 'Device / udev observation'), el('p', d.sysfs_path || 'Sysfs path unknown'), el('pre', JSON.stringify(d.properties || {}, null, 2)), el('p', 'Rule origin: ' + (d.rule_origin || 'undetermined')));
       const wants = d.properties && d.properties.SYSTEMD_WANTS;
       if (typeof wants === 'string') {
-        out.append(el('p', 'SYSTEMD_WANTS property is a device hint, not proof of an activation transaction.'));
-        for (const name of wants.split(/\s+/)) if (idx.units.has(name)) out.append(button(name));
+        technical.append(el('p', 'SYSTEMD_WANTS property is a device hint, not proof of an activation transaction.'));
+        for (const name of wants.split(/\s+/)) if (idx.units.has(name)) technical.append(button(name));
       }
     }
     const warnings = data.warnings.filter(w => w && w.unit === selected);
-    if (warnings.length) { out.append(el('h3', 'Warnings')); for (const w of warnings) out.append(el('p', `${w.item}: ${w.message}`, 'warning')); }
+    if (warnings.length) { technical.append(el('h3', 'Warnings')); for (const w of warnings) technical.append(el('p', `${w.item}: ${w.message}`, 'warning')); }
     const context = globalThis.ExplorerContext.inspect(idx, selected);
-    out.append(el('h3', 'Activation request paths (effective observations)'), el('p', 'Candidates only, not proof of actual activation. Up to four request hops / 100 explored paths. Triggers and stop propagation are separate.', 'muted'));
+    if (context.truncated) {
+      const labels = {'cycle':'Cycle stops', 'depth-limit':'Depth stops', 'path-limit':'Search-size stops', 'display-limit':'Display omissions'};
+      out.append(el('p', 'Request paths are partial. ' + Object.entries(context.terminationCounts).filter(([reason]) => labels[reason]).map(([reason, count]) => labels[reason] + ': ' + count).join(' · '), 'warning'));
+    }
+    const pathPanel = el('details'); pathPanel.append(el('summary', 'What could start this unit? (' + context.paths.length + ' paths' + (context.truncated ? ', limited exploration' : '') + ')')); out.append(pathPanel);
+    pathPanel.append(el('h3', 'Activation request paths (effective observations)'), el('p', 'Candidates only, not proof of actual activation. Up to four request hops / 100 explored paths. Triggers and stop propagation are separate.', 'muted'));
     for (const path of context.paths) {
       const row = el('div', undefined, 'relation');
-      path.nodes.forEach((name, i) => { row.append(button(name)); if (i < path.edges.length) row.append(el('small', path.edges[i].kind + ' → · ' + path.edges[i].source)); }); out.append(row);
+      path.nodes.forEach((name, i) => { row.append(button(name)); if (i < path.edges.length) row.append(el('small', path.edges[i].kind + ' → · ' + path.edges[i].source)); }); row.append(el('small', 'Path endpoint: ' + ({'no-upstream-observation':'no further upstream request observed','depth-limit':'depth limit reached','cycle':'cycle encountered','path-limit':'exploration size limit reached'}[path.stop] || 'unknown') + (path.stoppedAt ? ' at ' + path.stoppedAt : ''))); pathPanel.append(row);
     }
-    if (!context.paths.length) out.append(el('p', 'No upstream request path collected. This does not establish why the unit started.'));
-    if (context.truncated) out.append(el('p', 'Path exploration limited by depth, size or cycles.', 'warning'));
-    for (const [label, rows] of [['Waits for (ordering only)', context.waits], ['Ordered before', context.waitedBy]]) {
-      out.append(el('h3', label), el('p', 'Ordering does not start the other unit or prove application readiness.', 'muted'));
-      for (const row of rows) out.append(button(row.unit), el('small', row.edge.kind + ' · ' + row.edge.source));
-      if (!rows.length) out.append(el('p', 'No ordering constraint collected.'));
+    if (!context.paths.length) pathPanel.append(el('p', 'No upstream request path collected. This does not establish why the unit started.'));
+    if (context.truncated) pathPanel.append(el('p', 'Path exploration limited by depth, size or cycles.', 'warning'));
+    for (const [label, rows] of [['What does it wait for?', context.waits], ['What waits for it?', context.waitedBy]]) {
+      const group = el('details', undefined, 'context-group'); group.open = rows.length <= 8;
+      group.append(el('summary', label + ' (' + rows.length + ')'), el('p', 'Ordering only: this does not start another unit or establish readiness.', 'muted'));
+      const items = el('div', undefined, 'ordering-list'); group.append(items);
+      for (const row of rows) { const item = el('div', undefined, 'ordering-item'); item.append(button(row.unit), el('small', (idx.units.get(row.unit)?.active_state || 'unknown') + ' · ' + row.edge.kind)); item.title = row.edge.source || 'Source unknown'; items.append(item); }
+      if (!rows.length) items.append(el('p', 'No ordering constraint collected.', 'muted'));
+      out.append(group);
     }
-    out.append(el('h3', 'Device / mount / trigger contacts'), el('p', 'Effective property contacts within two undirected hops (100 nodes). These are not sysfs parentage or a hardware startup trace.', 'muted'));
-    for (const edge of context.hardware) out.append(el('p', edge.from + ' → ' + edge.to + ' · ' + edge.kind), button(edge.from === selected ? edge.to : edge.from));
-    if (!context.hardware.length) out.append(el('p', 'No nearby contacts collected; hardware readiness remains unknown.'));
-    out.append(el('h3', 'Incoming / outgoing relationships'));
-    out.append(el('p', 'All collected relationships, including those hidden by view filters.', 'muted'));
+    technical.append(el('h3', 'Device / mount / trigger contacts'), el('p', 'Effective property contacts within two undirected hops (100 nodes). These are not sysfs parentage or a hardware startup trace.', 'muted'));
+    for (const edge of context.hardware) technical.append(el('p', edge.from + ' → ' + edge.to + ' · ' + edge.kind), button(edge.from === selected ? edge.to : edge.from));
+    if (!context.hardware.length) technical.append(el('p', 'No nearby contacts collected; hardware readiness remains unknown.'));
+    technical.append(el('h3', 'Incoming / outgoing relationships'));
+    technical.append(el('p', 'All collected relationships, including those hidden by view filters.', 'muted'));
     const edges = (idx.adjacency.get(selected) || []).map(i => idx.relations[i]);
-    if (!edges.length) out.append(el('p', 'No relationships collected. This is not proof of no dependencies.'));
+    if (!edges.length) technical.append(el('p', 'No relationships collected. This is not proof of no dependencies.'));
     // Details are paginated separately so graph caps never hide navigation entirely.
     let shown = 0;
     const more = el('button', 'Show more relationships');
@@ -144,11 +157,51 @@
         const other = e.from === selected ? e.to : e.from;
         div.append(el('small', `${e.from} → ${e.to} · ${e.kind}`), button(other), el('small', `${e.evidence} · certainty: ${e.confidence || 'unknown'} · origin: ${e.origin || 'undetermined'}`), el('small', e.source || 'Source unknown'));
         if (e.evidence !== 'effective') div.append(el('small', 'Disk hint only; does not establish a manager dependency or activation.'));
-        out.insertBefore(div, more);
+        technical.insertBefore(div, more);
       }
       shown += 100; more.hidden = shown >= edges.length;
     }
-    out.append(more); more.addEventListener('click', appendEdges); appendEdges();
+    technical.append(more); more.addEventListener('click', appendEdges); appendEdges();
+    const hardwareButton = el('button', 'Explore hardware contacts'); hardwareButton.addEventListener('click', () => setWorkspace('hardware')); out.append(hardwareButton, technical);
+  }
+  function setWorkspace(mode) {
+    workspace = mode;
+    $('empty-workspace').hidden = Boolean(idx);
+    $('system-timeline').hidden = !idx || mode !== 'overview';
+    $('unit-exploration').hidden = !idx || mode !== 'service';
+    $('hardware-workspace').hidden = !idx || mode !== 'hardware';
+    const text = {
+      overview: ['Boot overview', 'Choose a time window, then click a unit to investigate its connections. Points are observations, not startup durations.'],
+      service: ['Plan a service', 'Choose an existing unit to inspect what could start it and what it waits for. No placement is chosen automatically.'],
+      hardware: ['Explore hardware', 'Choose a device or mount. Inspect observed mappings and contacts; graph proximity does not prove physical parentage or readiness.'],
+    };
+    $('workspace-title').textContent = text[mode][0]; $('workspace-hint').textContent = text[mode][1];
+    for (const name of ['overview', 'service', 'hardware']) $('task-' + name).setAttribute('aria-pressed', String(name === mode));
+    if (mode === 'hardware') renderHardware();
+    if (mode === 'overview') timeline.refresh();
+    if (mode === 'service') resetView();
+  }
+  function renderHardware() {
+    const list = $('hardware-list'), detail = $('hardware-selected'); list.replaceChildren(); detail.replaceChildren(); $('hardware-more').hidden = true;
+    if (!idx) { $('hardware-count').textContent = 'Open a snapshot to explore devices and mounts.'; detail.textContent = 'No snapshot loaded.'; return; }
+    const query = $('hardware-search').value.trim().toLowerCase();
+    const units = Array.from(idx.units.values()).filter(u => ['device', 'mount', 'automount'].includes(u.unit_type) && [u.name, u.description, u.runtime_properties?.Where, u.runtime_properties?.What].some(v => String(v || '').toLowerCase().includes(query)));
+    $('hardware-count').textContent = units.length + ' devices/mounts · showing ' + Math.min(hardwarePage, units.length);
+    for (const u of units.slice(0, hardwarePage)) { const b = button(u.name); b.className = 'unit-row' + (selected === u.name ? ' selected' : ''); b.append(el('small', (u.unit_type || 'unknown') + ' · ' + (u.active_state || 'unknown'))); list.append(b); }
+    $('hardware-more').hidden = units.length <= hardwarePage;
+    if (!selected) { detail.append(el('h2', 'Choose a device or mount'), el('p', 'Search the inventory on the left, then select an item to see collected evidence.')); return; }
+    const u = idx.units.get(selected); detail.append(el('h2', u.name), el('p', u.description || 'Description unknown'), el('p', (u.active_state || 'unknown') + ' (snapshot)', 'selection-status'));
+    const mapping = el('dl'); detail.append(mapping);
+    if (['mount', 'automount'].includes(u.unit_type)) { field(mapping, 'Mount point (Where)', u.runtime_properties?.Where); field(mapping, 'Mount source (What)', u.runtime_properties?.What); }
+    const devices = data.devices.filter(d => d.unit === selected);
+    for (const device of devices) { field(mapping, 'Observed sysfs path', device.sysfs_path); const extra = el('details'); extra.append(el('summary', 'udev properties and provenance'), el('pre', JSON.stringify(device.properties, null, 2)), el('p', device.rule_origin || 'Rule origin unknown')); detail.append(extra); }
+    if (u.unit_type === 'device' && !devices.length) detail.append(el('p', 'No sysfs mapping collected for this device.', 'warning'));
+    const context = globalThis.ExplorerContext.inspect(idx, selected);
+    detail.append(el('h3', 'Nearby observed contacts'), el('p', 'Two graph hops, not a physical device tree. Original property direction is preserved.', 'muted'));
+    if (context.hardwareHiddenNodes || context.hardwareHiddenEdges) detail.append(el('p', 'Limited view: ' + context.hardwareHiddenNodes + ' boundary nodes and ' + context.hardwareHiddenEdges + ' edges omitted by size caps.', 'warning'));
+    for (const edge of context.hardware) { const row = el('div', undefined, 'relation'); row.append(button(edge.from), el('small', edge.kind + ' →'), button(edge.to)); detail.append(row); }
+    if (!context.hardware.length) detail.append(el('p', 'No contacts collected within this scope. This does not establish absence of dependencies.'));
+    const open = el('button', 'Open service context and full observations'); open.addEventListener('click', () => setWorkspace('service')); detail.append(open);
   }
   function syncKindControls() {
     for (const input of $('kinds').querySelectorAll('input')) {
@@ -261,6 +314,9 @@
     }
   }
   function renderTimeline() { timeline.setSnapshot(data, idx.units); }
+  for (const mode of ['overview', 'service', 'hardware']) $('task-' + mode).addEventListener('click', () => setWorkspace(mode));
+  $('hardware-search').addEventListener('input', () => { hardwarePage = 50; renderHardware(); });
+  $('hardware-more').addEventListener('click', () => { hardwarePage += 50; renderHardware(); });
   $('file').addEventListener('change', e => load(e.target.files[0]));
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
@@ -293,5 +349,5 @@
     }
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
-  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null);
+  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null); setWorkspace('overview'); renderHardware();
 })();

@@ -142,6 +142,7 @@
         rebuild();
       },
       select(name) { selected = name; renderVisible(); },
+      refresh() { rebuild(false); },
     };
   }
   root.ExplorerTimeline = { create };
