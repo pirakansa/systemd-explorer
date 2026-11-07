@@ -275,3 +275,29 @@ test('service results and mount paths display alongside legacy unknown values', 
   get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
   assert.match(get('detail').textContent,/Unknown \/ not collected/);
 });
+test('task workspaces isolate views, preserve timeline range and disclose technical details', async()=>{
+ const {get,load}=setup();
+ assert.equal(get('empty-workspace').hidden,false);assert.equal(get('system-timeline').hidden,true);assert.equal(get('unit-exploration').hidden,true);assert.equal(get('hardware-workspace').hidden,true);
+ await load(small);assert.equal(get('empty-workspace').hidden,true);assert.equal(get('system-timeline').hidden,false);
+ get('timeline-start').value='0';get('timeline-end').value='1';get('timeline-apply').fire('click');
+ get('task-service').fire('click');assert.equal(get('system-timeline').hidden,true);assert.equal(get('unit-exploration').hidden,false);
+ get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+ const technical=get('detail').children.find(c=>c.className==='technical-details');
+ assert(technical);assert.notEqual(technical.open,true);assert.match(technical.textContent,/FragmentPath/);
+ get('task-overview').fire('click');assert.equal(get('timeline-end').value,'1');
+ get('task-hardware').fire('click');assert.equal(get('hardware-workspace').hidden,false);assert.equal(get('unit-exploration').hidden,true);
+ assert.equal(get('task-hardware').getAttribute('aria-pressed'),'true');
+});
+test('hardware task searches mount paths, keeps selection and clears stale evidence',async()=>{
+ const {get,load}=setup(),data=JSON.parse(small);
+ data.units.find(u=>u.name==='data.mount').runtime_properties={Where:'/srv/reports',What:'/dev/fictitious'};
+ await load(JSON.stringify(data));get('task-hardware').fire('click');
+ get('hardware-search').value='/srv/reports';get('hardware-search').fire('input');
+ assert.equal(get('hardware-list').children.length,1);get('hardware-list').children[0].fire('click');
+ assert.equal(get('hardware-workspace').hidden,false);assert.match(get('hardware-selected').textContent,/\/srv\/reports/);
+ get('hardware-selected').querySelectorAll('button').find(b=>b.textContent==='Open service context and full observations').fire('click');
+ assert.equal(get('unit-exploration').hidden,false);assert.match(get('detail').textContent,/data.mount/);
+ get('detail').querySelectorAll('button').find(b=>b.textContent==='Explore hardware contacts').fire('click');
+ assert.equal(get('hardware-workspace').hidden,false);
+ await load('{bad');assert.match(get('hardware-selected').textContent,/No snapshot/);assert.equal(get('hardware-more').hidden,true);
+});
