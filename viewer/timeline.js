@@ -42,6 +42,7 @@
       control('Zoom in', 'timeline-zoom-in', () => { if (model) changeRange(T.zoomRange(range, .5, model.domainEnd)); }),
       control('Zoom out', 'timeline-zoom-out', () => { if (model) changeRange(T.zoomRange(range, 2, model.domainEnd)); }),
       control('Earlier', 'timeline-earlier', () => pan(-.5)), control('Later', 'timeline-later', () => pan(.5)),
+      control('First 30 seconds', 'timeline-boot', () => { if(model) changeRange({start:0,end:Math.min(30,model.domainEnd)}); }),
       control('Full range', 'timeline-reset', () => { if (model) changeRange({ start: 0, end: model.domainEnd }); }));
     const legend = el('div', undefined, undefined, 'timeline-legend');
     for (const event of Object.values(EVENTS)) { const label = el('span', '● ' + event.label); label.style.color = event.color; legend.append(label); }

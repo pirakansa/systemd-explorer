@@ -301,3 +301,12 @@ test('hardware task searches mount paths, keeps selection and clears stale evide
  assert.equal(get('hardware-workspace').hidden,false);
  await load('{bad');assert.match(get('hardware-selected').textContent,/No snapshot/);assert.equal(get('hardware-more').hidden,true);
 });
+test('boot shortcut clamps to observations and condition summaries keep raw evidence',async()=>{
+ const {get,load}=setup(),data=JSON.parse(small);
+ data.units.find(u=>u.name==='demo.service').runtime_properties={ConditionResult:'no',ConditionTimestampMonotonic:'0'};
+ await load(JSON.stringify(data));const end=Number(get('timeline-end').value);
+ get('timeline-boot').fire('click');assert.equal(Number(get('timeline-start').value),0);assert.equal(Number(get('timeline-end').value),Math.min(30,end));
+ get('task-service').fire('click');get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+ assert.match(get('detail').textContent,/Conditions: No evaluation timestamp recorded/);
+ assert.match(get('detail').textContent,/ConditionResult/);
+});

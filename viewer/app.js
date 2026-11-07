@@ -91,6 +91,7 @@
     field(dl, 'Inventory', `${u.loaded ? 'Manager loaded inventory' : 'Not observed loaded'}; ${u.installed ? 'installed inventory' : 'not observed installed'}${u.unresolved ? '; unresolved reference' : ''}`);
     technical.append(el('h3', 'Startup, conditions and result'));
     const runtime = u.runtime_properties || {};
+    out.append(el('p', 'Conditions: ' + globalThis.ExplorerContext.condition(runtime, 'Condition') + ' · Asserts: ' + globalThis.ExplorerContext.condition(runtime, 'Assert'), 'muted'));
     const runtimeList = el('dl'); technical.append(runtimeList);
     const fields = ['ConditionResult', 'AssertResult', 'ConditionTimestampMonotonic', 'AssertTimestampMonotonic'];
     if (u.unit_type === 'service') fields.push('Type', 'RemainAfterExit', 'NotifyAccess', 'Result', 'ExecMainCode', 'ExecMainStatus');
@@ -185,21 +186,31 @@
     const list = $('hardware-list'), detail = $('hardware-selected'); list.replaceChildren(); detail.replaceChildren(); $('hardware-more').hidden = true;
     if (!idx) { $('hardware-count').textContent = 'Open a snapshot to explore devices and mounts.'; detail.textContent = 'No snapshot loaded.'; return; }
     const query = $('hardware-search').value.trim().toLowerCase();
-    const units = Array.from(idx.units.values()).filter(u => ['device', 'mount', 'automount'].includes(u.unit_type) && [u.name, u.description, u.runtime_properties?.Where, u.runtime_properties?.What].some(v => String(v || '').toLowerCase().includes(query)));
-    $('hardware-count').textContent = units.length + ' devices/mounts · showing ' + Math.min(hardwarePage, units.length);
-    for (const u of units.slice(0, hardwarePage)) { const b = button(u.name); b.className = 'unit-row' + (selected === u.name ? ' selected' : ''); b.append(el('small', (u.unit_type || 'unknown') + ' · ' + (u.active_state || 'unknown'))); list.append(b); }
-    $('hardware-more').hidden = units.length <= hardwarePage;
+    const groups = globalThis.ExplorerContext.devices(idx,data.devices).filter(g=>[g.path,...g.units.flatMap(u=>[u.name,u.description,u.runtime_properties?.Where,u.runtime_properties?.What])].some(v=>String(v||'').toLowerCase().includes(query)));
+    $('hardware-count').textContent = groups.length + ' device/mount groups · showing ' + Math.min(hardwarePage,groups.length);
+    for (const group of groups.slice(0,hardwarePage)) {
+      const u=group.units.find(u=>u.name===selected)||group.units.find(u=>u.name.toLowerCase().includes(query))||group.units[0];
+      const b=button(u.name); b.className='unit-row'+(group.units.some(x=>x.name===selected)?' selected':'');
+      b.append(el('small',(u.unit_type||'unknown')+' · '+(u.active_state||'unknown')+(group.units.length>1?' · '+group.units.length+' unit aliases':''))); list.append(b);
+    }
+    $('hardware-more').hidden = groups.length <= hardwarePage;
     if (!selected) { detail.append(el('h2', 'Choose a device or mount'), el('p', 'Search the inventory on the left, then select an item to see collected evidence.')); return; }
     const u = idx.units.get(selected); detail.append(el('h2', u.name), el('p', u.description || 'Description unknown'), el('p', (u.active_state || 'unknown') + ' (snapshot)', 'selection-status'));
     const mapping = el('dl'); detail.append(mapping);
     if (['mount', 'automount'].includes(u.unit_type)) { field(mapping, 'Mount point (Where)', u.runtime_properties?.Where); field(mapping, 'Mount source (What)', u.runtime_properties?.What); }
     const devices = data.devices.filter(d => d.unit === selected);
+    const aliasGroup = globalThis.ExplorerContext.devices(idx,data.devices).find(g=>g.units.some(x=>x.name===selected));
+    if(aliasGroup && aliasGroup.units.length>1) {const aliases=el('details');aliases.append(el('summary',aliasGroup.units.length+' names for the same observed sysfs path'));for(const alias of aliasGroup.units)aliases.append(button(alias.name));detail.append(aliases);}
     for (const device of devices) { field(mapping, 'Observed sysfs path', device.sysfs_path); const extra = el('details'); extra.append(el('summary', 'udev properties and provenance'), el('pre', JSON.stringify(device.properties, null, 2)), el('p', device.rule_origin || 'Rule origin unknown')); detail.append(extra); }
     if (u.unit_type === 'device' && !devices.length) detail.append(el('p', 'No sysfs mapping collected for this device.', 'warning'));
     const context = globalThis.ExplorerContext.inspect(idx, selected);
-    detail.append(el('h3', 'Nearby observed contacts'), el('p', 'Two graph hops, not a physical device tree. Original property direction is preserved.', 'muted'));
+    detail.append(el('h3', 'Direct observed relationships'), el('p', 'Indirect relationships only expand through a device, mount, automount, socket or path. Generic target/service hubs are not traversed. This is not a physical device tree.', 'muted'));
     if (context.hardwareHiddenNodes || context.hardwareHiddenEdges) detail.append(el('p', 'Limited view: ' + context.hardwareHiddenNodes + ' boundary nodes and ' + context.hardwareHiddenEdges + ' edges omitted by size caps.', 'warning'));
-    for (const edge of context.hardware) { const row = el('div', undefined, 'relation'); row.append(button(edge.from), el('small', edge.kind + ' →'), button(edge.to)); detail.append(row); }
+    const showEdge=(edge,parent)=>{const row=el('div',undefined,'relation');row.append(button(edge.from),el('small',edge.kind+' →'),button(edge.to));parent.append(row);};
+    for(const edge of context.hardwareDirect)showEdge(edge,detail);
+    if(!context.hardwareDirect.length)detail.append(el('p','No direct hardware-like relationships observed.'));
+    const indirect=el('details');indirect.append(el('summary','Indirect contacts ('+context.hardwareIndirect.length+')'));
+    for(const contact of context.hardwareIndirect){indirect.append(el('p','Via '+contact.via));showEdge(contact.connector,indirect);showEdge(contact.edge,indirect);}detail.append(indirect);
     if (!context.hardware.length) detail.append(el('p', 'No contacts collected within this scope. This does not establish absence of dependencies.'));
     const open = el('button', 'Open service context and full observations'); open.addEventListener('click', () => setWorkspace('service')); detail.append(open);
   }

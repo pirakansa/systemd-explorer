@@ -3,7 +3,9 @@
   'use strict';
   const requests = new Set(['Wants', 'Requires', 'BindsTo', 'Upholds']);
   function inspect(idx, name) {
-    const effective = idx.relations.filter(e => e.evidence === 'effective');
+    const key = e => JSON.stringify([e.from,e.to,e.kind,e.source || '']);
+    const compare = (a,b) => key(a).localeCompare(key(b));
+    const effective = idx.relations.filter(e => e.evidence === 'effective').sort(compare);
     const waits = [], waitedBy = [], hardware = [], paths = [];
     for (const e of effective) {
       const before = e.kind === 'Before' ? e.from : e.kind === 'After' ? e.to : null;
@@ -33,19 +35,44 @@
         queue.push({nodes:[e.from,...p.nodes],edges:[e,...p.edges]});
       }
     }
-    // Local contact map: original edges, two hops, no invented hardware causality.
-    const hiddenNodes=new Set(), seen=new Set([name]), todo=[{unit:name,depth:0}];
-    for(let i=0;i<todo.length;i++) {
-      const n=todo[i]; if(n.depth===2) continue;
-      for(const e of adjacent.get(n.unit)||[]) {
-        const other=e.from===n.unit?e.to:e.from;
-        if(!seen.has(other)) { if(seen.size<100) {seen.add(other);todo.push({unit:other,depth:n.depth+1});} else hiddenNodes.add(other); }
-      }
+    // Direct evidence first. Indirect contacts require a hardware-like intermediary,
+    // never a generic target/service hub. Preserve the original connecting edge.
+    const isHardware = n => ['device','mount','automount','socket','path'].includes(idx.units.get(n)?.unit_type);
+    const neighbors = adjacent.get(name) || [];
+    const direct = neighbors.filter(e => isHardware(e.from) || isHardware(e.to)).sort(compare);
+    const contactKind = e => requests.has(e.kind) || ['Triggers','TriggeredBy'].includes(e.kind);
+    const connectors = neighbors.filter(contactKind);
+    const intermediates = [...new Set(connectors.map(e=>e.from===name?e.to:e.from).filter(n=>n!==name&&isHardware(n)))].sort();
+    const indirectMap = new Map();
+    for (const via of intermediates.slice(0,100)) for (const edge of adjacent.get(via)||[]) {
+      if (edge.from===name || edge.to===name || !contactKind(edge)) continue;
+      const connector = connectors.find(e=>e.from===via||e.to===via);
+      if (connector.from===name ? edge.from!==via : edge.to!==via) continue;
+      const k = JSON.stringify([via,key(edge)]);
+      if (!indirectMap.has(k)) indirectMap.set(k,{via,edge,connector});
     }
-    for(const e of effective) if(seen.has(e.from)&&seen.has(e.to) && [e.from,e.to].some(n=>['device','mount','automount','socket','path'].includes(idx.units.get(n)?.unit_type))) hardware.push(e);
+    const indirect = [...indirectMap.values()].sort((a,b)=>a.via.localeCompare(b.via)||compare(a.edge,b.edge));
+    const hardwareDirect = direct.slice(0,100), hardwareIndirect = indirect.slice(0,Math.max(0,100-hardwareDirect.length));
     const unique = rows => rows.filter((r,i)=>rows.findIndex(x=>x.unit===r.unit)===i);
-    return {paths, truncated, terminationCounts, hardwareHiddenNodes:hiddenNodes.size, hardwareHiddenEdges:Math.max(0,hardware.length-100), waits:unique(waits), waitedBy:unique(waitedBy), hardware:hardware.slice(0,100)};
+    return {paths, truncated, terminationCounts, hardwareHiddenNodes:Math.max(0,intermediates.length-100), hardwareHiddenEdges:Math.max(0,direct.length+indirect.length-100), hardwareDirect, hardwareIndirect, waits:unique(waits), waitedBy:unique(waitedBy), hardware:[...hardwareDirect,...hardwareIndirect.map(x=>x.edge)]};
   }
-  root.ExplorerContext={inspect};
+  function devices(idx, observations) {
+    const paths = new Map(observations.filter(d=>d.sysfs_path).map(d=>[d.unit,d.sysfs_path])), groups=new Map();
+    for(const unit of idx.units.values()) {
+      if(!['device','mount','automount'].includes(unit.unit_type)) continue;
+      const path=unit.unit_type==='device'?paths.get(unit.name):null;
+      const key=path?'sysfs:'+path:'unit:'+unit.name;
+      if(!groups.has(key)) groups.set(key,{path,units:[]}); groups.get(key).units.push(unit);
+    }
+    return [...groups.values()].map(g=>({...g,units:g.units.sort((a,b)=>a.name.localeCompare(b.name))})).sort((a,b)=>a.units[0].name.localeCompare(b.units[0].name));
+  }
+  function condition(properties, prefix) {
+    const raw=properties[prefix+'Result'], time=properties[prefix+'TimestampMonotonic'];
+    if(time===undefined || !Number.isFinite(Number(time)) || Number(time)<=0) return 'No evaluation timestamp recorded';
+    if(raw==='yes') return 'Latest recorded evaluation passed';
+    if(raw==='no') return 'Latest recorded evaluation did not pass';
+    return 'Evaluation result unknown';
+  }
+  root.ExplorerContext={inspect,devices,condition};
   if(typeof module!=='undefined') module.exports=root.ExplorerContext;
 })(typeof globalThis!=='undefined'?globalThis:this);
