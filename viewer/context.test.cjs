@@ -40,3 +40,13 @@ test('sysfs aliases group without losing names, while unknown paths stay separat
  assert.equal(X.condition({ConditionResult:'no',ConditionTimestampMonotonic:'0'},'Condition'),'No evaluation timestamp recorded');
  assert.equal(X.condition({ConditionResult:'no',ConditionTimestampMonotonic:'7'},'Condition'),'Latest recorded evaluation did not pass');
 });
+test('comparison combines request and normalized ordering evidence per neighbor',()=>{
+ const units=['app.service','data.mount','parent.target'].map(name=>({name,unit_type:name.split('.').pop()}));
+ const e=(from,to,kind,evidence='effective')=>({from,to,kind,evidence});
+ const idx=C.index({units,timings:[],devices:[],relations:[e('app.service','data.mount','Requires'),e('app.service','data.mount','After'),e('data.mount','app.service','Before'),e('parent.target','app.service','Wants'),e('app.service','parent.target','Wants','install_hint')]});
+ const rows=X.comparison(idx,'app.service'),mount=rows.find(r=>r.unit.name==='data.mount'),parent=rows.find(r=>r.unit.name==='parent.target');
+ assert.equal(rows.length,2);assert.deepEqual(mount.requests,['Requires']);assert(mount.waitsFor);assert(!mount.waitedBy);assert.equal(mount.evidence.length,3);
+ assert.deepEqual(parent.requests,[]);assert.deepEqual(parent.requestedBy,['Wants']);
+ const filtered=X.inspect(idx,'data.mount',{hardwareQuery:'parent.target'});assert.equal(filtered.hardwareDirect.length,0);
+ assert.match(X.startup('notify'),/not ongoing health/);
+});

@@ -310,3 +310,11 @@ test('boot shortcut clamps to observations and condition summaries keep raw evid
  assert.match(get('detail').textContent,/Conditions: No evaluation timestamp recorded/);
  assert.match(get('detail').textContent,/ConditionResult/);
 });
+test('selected summary precedes exploration and full-observation shortcut opens evidence',async()=>{
+ const {get,load}=setup();await load(small);get('task-service').fire('click');get('units').children.find(b=>b.textContent.startsWith('demo.service')).fire('click');
+ assert.match(get('selection-content').textContent,/demo.service/);assert.match(get('selection-content').textContent,/Requires/);
+ assert(get('selection-content').querySelectorAll('tr').length>1);
+ get('selection-content').querySelectorAll('button').find(b=>b.textContent==='Open full observations').fire('click');
+ const technical=get('detail').querySelectorAll('details').find(d=>d.className==='technical-details');assert(technical.open);assert(technical.scrolledIntoView);
+ get('task-hardware').fire('click');get('contact-search').value='no-such-neighbor';get('contact-search').fire('input');assert.match(get('hardware-selected').textContent,/No contacts match/);
+});

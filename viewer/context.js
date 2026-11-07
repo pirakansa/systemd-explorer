@@ -2,7 +2,7 @@
 (function(root) {
   'use strict';
   const requests = new Set(['Wants', 'Requires', 'BindsTo', 'Upholds']);
-  function inspect(idx, name) {
+  function inspect(idx, name, { hardwareQuery = '', hardwareRequestsOnly = false } = {}) {
     const key = e => JSON.stringify([e.from,e.to,e.kind,e.source || '']);
     const compare = (a,b) => key(a).localeCompare(key(b));
     const effective = idx.relations.filter(e => e.evidence === 'effective').sort(compare);
@@ -39,13 +39,15 @@
     // never a generic target/service hub. Preserve the original connecting edge.
     const isHardware = n => ['device','mount','automount','socket','path'].includes(idx.units.get(n)?.unit_type);
     const neighbors = adjacent.get(name) || [];
-    const direct = neighbors.filter(e => isHardware(e.from) || isHardware(e.to)).sort(compare);
+    const needle = hardwareQuery.trim().toLowerCase();
+    const matches = e => (!hardwareRequestsOnly || requests.has(e.kind)) && (!needle || [e.kind,...[e.from,e.to].filter(n=>n!==name).flatMap(n=>[n,idx.units.get(n)?.description,idx.units.get(n)?.runtime_properties?.Where,idx.units.get(n)?.runtime_properties?.What])].some(v=>String(v||'').toLowerCase().includes(needle)));
+    const direct = neighbors.filter(e => (isHardware(e.from) || isHardware(e.to)) && matches(e)).sort(compare);
     const contactKind = e => requests.has(e.kind) || ['Triggers','TriggeredBy'].includes(e.kind);
     const connectors = neighbors.filter(contactKind);
     const intermediates = [...new Set(connectors.map(e=>e.from===name?e.to:e.from).filter(n=>n!==name&&isHardware(n)))].sort();
     const indirectMap = new Map();
     for (const via of intermediates.slice(0,100)) for (const edge of adjacent.get(via)||[]) {
-      if (edge.from===name || edge.to===name || !contactKind(edge)) continue;
+      if (edge.from===name || edge.to===name || !contactKind(edge) || !matches(edge)) continue;
       const connector = connectors.find(e=>e.from===via||e.to===via);
       if (connector.from===name ? edge.from!==via : edge.to!==via) continue;
       const k = JSON.stringify([via,key(edge)]);
@@ -73,6 +75,23 @@
     if(raw==='no') return 'Latest recorded evaluation did not pass';
     return 'Evaluation result unknown';
   }
-  root.ExplorerContext={inspect,devices,condition};
+  function comparison(idx, name) {
+    const rows = new Map();
+    for(const e of idx.relations) {
+      if(e.evidence!=='effective'||(e.from!==name&&e.to!==name)) continue;
+      const other=e.from===name?e.to:e.from;
+      if(!rows.has(other))rows.set(other,{unit:idx.units.get(other),requests:new Set(),requestedBy:new Set(),waitsFor:false,waitedBy:false,otherKinds:new Set(),evidence:[]});
+      const row=rows.get(other);row.evidence.push(e);
+      if(requests.has(e.kind)) { if(e.from===name)row.requests.add(e.kind);if(e.to===name)row.requestedBy.add(e.kind); }
+      else if(!['After','Before'].includes(e.kind))row.otherKinds.add(e.kind);
+      if((e.from===name&&e.kind==='After')||(e.to===name&&e.kind==='Before'))row.waitsFor=true;
+      if((e.from===name&&e.kind==='Before')||(e.to===name&&e.kind==='After'))row.waitedBy=true;
+    }
+    return [...rows.values()].sort((a,b)=>Number(b.requests.size>0)-Number(a.requests.size>0)||a.unit.name.localeCompare(b.unit.name)).map(r=>({...r,requests:[...r.requests].sort(),requestedBy:[...r.requestedBy].sort(),otherKinds:[...r.otherKinds].sort()}));
+  }
+  function startup(type) {
+    return ({simple:'Process-start semantics; not application readiness',exec:'Successful exec semantics; not application readiness',oneshot:'Command-completion semantics',notify:'Readiness-notification semantics; not ongoing health','notify-reload':'Readiness/reload notification semantics; not ongoing health',dbus:'Bus-name acquisition semantics; not ongoing health',forking:'Parent-process exit semantics',idle:'Deferred dispatch semantics; not application readiness'})[type] || 'Startup semantics unknown / not collected';
+  }
+  root.ExplorerContext={inspect,devices,condition,comparison,startup};
   if(typeof module!=='undefined') module.exports=root.ExplorerContext;
 })(typeof globalThis!=='undefined'?globalThis:this);
