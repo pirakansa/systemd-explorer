@@ -9,6 +9,7 @@
   const timeline = globalThis.ExplorerTimeline.create({ document, element: $('timeline'), onSelect: name => {
     choose(name); $('unit-exploration').scrollIntoView({ block: 'start', behavior: 'smooth' });
   } });
+  const structure = globalThis.ExplorerStructure.create({document,element:$('structure-view'),onInspect:name=>{choose(name);$('unit-exploration').scrollIntoView({block:'start'});}});
   const colors = { request: '#1466ab', ordering: '#9a5900', other: '#7954a1' };
   const RELATION_PAGE_SIZE = 40;
   const GRAPH_MAX_NODES = 25, GRAPH_MAX_EDGES = 80;
@@ -31,7 +32,7 @@
       if (token !== loadToken) return;
       const parsed = C.validate(JSON.parse(text));
       data = parsed; idx = C.index(data); selected = null; pageSize = 100; graph = null; positions.clear();
-      $('search').value = ''; $('relations-search').value = ''; $('hardware-search').value = ''; hardwarePage = 50; $('detail').textContent = 'Select a unit from the inventory.';
+      $('search').value = ''; $('relations-search').value = ''; $('hardware-search').value = ''; $('contact-search').value = ''; hardwarePage = 50; $('detail').textContent = 'Select a unit from the inventory.';
       $('graph-status').textContent = 'Select a unit to explore a bounded neighborhood.';
       setOptions('type', Array.from(idx.units.values()).map(u => u.unit_type || 'unknown'), 'All types');
       setOptions('state', Array.from(idx.units.values()).map(u => u.active_state || 'unknown'), 'All states');
@@ -54,13 +55,13 @@
       for (const d of Array.isArray(data.metadata.diagnostics) ? data.metadata.diagnostics : []) if (d) diagnostic.append(el('div', `${d.item}: ${d.status} — ${d.detail}`));
       for (const w of data.warnings) if (w) diagnostic.append(el('div', `${w.unit || 'snapshot'} / ${w.item}: ${w.message}`, 'warning'));
       message(idx.units.size ? `Loaded ${file.name}. ${data.warnings.length ? 'Partial observations: inspect collection warnings.' : 'Review diagnostics for collection coverage.'}` : 'Snapshot contains no units. Collection diagnostics may explain missing data.');
-      renderInventory(); renderTimeline(); renderRelations(); renderHardware(); setWorkspace(workspace); resetView();
+      structure.setSnapshot(idx); renderInventory(); renderTimeline(); renderRelations(); renderSelection(); renderHardware(); setWorkspace(workspace); resetView();
     } catch (e) {
       if (token !== loadToken) return;
       data = null; idx = null; selected = null; graph = null; positions.clear();
       for (const id of ['units', 'overview', 'detail', 'diagnostic-body', 'kinds']) $(id).replaceChildren();
       $('more').hidden = true; $('list-count').textContent = ''; $('graph-status').textContent = 'No valid snapshot loaded.';
-      renderRelations(); renderHardware(); timeline.setSnapshot(null); setWorkspace(workspace);
+      structure.setSnapshot(null); renderRelations(); renderSelection(); renderHardware(); timeline.setSnapshot(null); setWorkspace(workspace);
       draw(); message('Could not load snapshot: ' + e.message, true);
     }
   }
@@ -78,7 +79,33 @@
   }
   function choose(name) {
     if (!idx || !idx.units.has(name)) return;
-    selected = name; if (workspace !== 'hardware') setWorkspace('service'); timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph(); renderHardware();
+    selected = name; $('contact-search').value = ''; renderSelection(); if (workspace !== 'hardware') setWorkspace('service'); timeline.select(name); $('relations-search').value = ''; renderInventory(); renderDetails(); updateGraph(); renderHardware();
+  }
+  function renderSelection() {
+    const out=$('selection-content');out.replaceChildren();
+    if(!idx||!selected){out.textContent='Choose a unit to compare its observed dependencies.';return;}
+    const u=idx.units.get(selected), runtime=u.runtime_properties||{}, X=globalThis.ExplorerContext;
+    out.append(el('h3',u.name),el('span',(u.active_state||'Unknown state')+' · '+(u.unit_file_state||'Enablement unknown'),'selection-status'));
+    if(u.unit_type==='service')out.append(el('p',(runtime.Type||'Unknown startup type')+' — '+X.startup(runtime.Type),'muted'));
+    out.append(el('p','Conditions: '+X.condition(runtime,'Condition'),'muted'));
+    const full=el('button','Open full observations');full.addEventListener('click',()=>{const panel=Array.from($('detail').querySelectorAll('details')).find(x=>x.className==='technical-details');if(panel){panel.open=true;panel.scrollIntoView({block:'start'});}});out.append(full);
+    const rows=X.comparison(idx,selected);out.append(el('p',rows.length+' related units · all effective direct observations, independent of list filters. Requests and ordering are independent. Missing means not observed, not a configuration error.','muted'));
+    const scroll=el('div',undefined,'comparison-scroll'),table=el('table'),head=el('thead'),tr=el('tr'),body=el('tbody');
+    const labels=['Related unit','Selected requests','Requests selected','Selected waits for','Waits for selected','State','Startup type'];
+    for(const label of labels)tr.append(el('th',label));head.append(tr);table.append(head,body);scroll.append(table);out.append(scroll);
+    let shown=0;const more=el('button','Show more related units');out.append(more);
+    function appendRows(){
+      for(const row of rows.slice(shown,shown+50)){
+        const tr=el('tr'),name=el('td');name.setAttribute('data-label',labels[0]);name.append(button(row.unit.name));
+        if(row.otherKinds.length)name.append(el('small','Other: '+row.otherKinds.join(', ')));
+        const sources=el('details');sources.append(el('summary','Property evidence ('+row.evidence.length+')'),el('pre',row.evidence.map(e=>e.from+' → '+e.to+' · '+e.kind+' · '+(e.source||'Source unknown')).join('\n')));name.append(sources);tr.append(name);
+        const values=[row.requests.join(', ')||'Not observed',row.requestedBy.join(', ')||'Not observed',row.waitsFor?'Observed':'Not observed',row.waitedBy?'Observed':'Not observed',row.unit.active_state||'Unknown',row.unit.unit_type==='service'?(row.unit.runtime_properties?.Type||'Unknown'):'—'];
+        values.forEach((value,i)=>{const td=el('td',value);td.setAttribute('data-label',labels[i+1]);if(i===5)td.title=X.startup(row.unit.runtime_properties?.Type);tr.append(td);});body.append(tr);
+      }
+      shown=Math.min(rows.length,shown+50);more.hidden=shown>=rows.length;more.textContent='Show more related units ('+shown+' / '+rows.length+')';
+    }
+    more.addEventListener('click',appendRows);appendRows();
+    if(!rows.length)out.append(el('p','No effective direct relationships collected.'));
   }
   function renderDetails() {
     const u = idx.units.get(selected), out = $('detail'); out.replaceChildren(el('h3', u.name));
@@ -91,6 +118,7 @@
     field(dl, 'Inventory', `${u.loaded ? 'Manager loaded inventory' : 'Not observed loaded'}; ${u.installed ? 'installed inventory' : 'not observed installed'}${u.unresolved ? '; unresolved reference' : ''}`);
     technical.append(el('h3', 'Startup, conditions and result'));
     const runtime = u.runtime_properties || {};
+    out.append(el('p', 'Conditions: ' + globalThis.ExplorerContext.condition(runtime, 'Condition') + ' · Asserts: ' + globalThis.ExplorerContext.condition(runtime, 'Assert'), 'muted'));
     const runtimeList = el('dl'); technical.append(runtimeList);
     const fields = ['ConditionResult', 'AssertResult', 'ConditionTimestampMonotonic', 'AssertTimestampMonotonic'];
     if (u.unit_type === 'service') fields.push('Type', 'RemainAfterExit', 'NotifyAccess', 'Result', 'ExecMainCode', 'ExecMainStatus');
@@ -167,16 +195,18 @@
   function setWorkspace(mode) {
     workspace = mode;
     $('empty-workspace').hidden = Boolean(idx);
+    $('structure-workspace').hidden = !idx || mode !== 'structure';
     $('system-timeline').hidden = !idx || mode !== 'overview';
     $('unit-exploration').hidden = !idx || mode !== 'service';
     $('hardware-workspace').hidden = !idx || mode !== 'hardware';
     const text = {
+      structure: ['System structure','Start with grouped effective relations, expand a unit type or focus a target, then inspect a unit. Group depth is not boot order.'],
       overview: ['Boot overview', 'Choose a time window, then click a unit to investigate its connections. Points are observations, not startup durations.'],
       service: ['Plan a service', 'Choose an existing unit to inspect what could start it and what it waits for. No placement is chosen automatically.'],
       hardware: ['Explore hardware', 'Choose a device or mount. Inspect observed mappings and contacts; graph proximity does not prove physical parentage or readiness.'],
     };
     $('workspace-title').textContent = text[mode][0]; $('workspace-hint').textContent = text[mode][1];
-    for (const name of ['overview', 'service', 'hardware']) $('task-' + name).setAttribute('aria-pressed', String(name === mode));
+    for (const name of ['structure', 'overview', 'service', 'hardware']) $('task-' + name).setAttribute('aria-pressed', String(name === mode));
     if (mode === 'hardware') renderHardware();
     if (mode === 'overview') timeline.refresh();
     if (mode === 'service') resetView();
@@ -185,22 +215,32 @@
     const list = $('hardware-list'), detail = $('hardware-selected'); list.replaceChildren(); detail.replaceChildren(); $('hardware-more').hidden = true;
     if (!idx) { $('hardware-count').textContent = 'Open a snapshot to explore devices and mounts.'; detail.textContent = 'No snapshot loaded.'; return; }
     const query = $('hardware-search').value.trim().toLowerCase();
-    const units = Array.from(idx.units.values()).filter(u => ['device', 'mount', 'automount'].includes(u.unit_type) && [u.name, u.description, u.runtime_properties?.Where, u.runtime_properties?.What].some(v => String(v || '').toLowerCase().includes(query)));
-    $('hardware-count').textContent = units.length + ' devices/mounts · showing ' + Math.min(hardwarePage, units.length);
-    for (const u of units.slice(0, hardwarePage)) { const b = button(u.name); b.className = 'unit-row' + (selected === u.name ? ' selected' : ''); b.append(el('small', (u.unit_type || 'unknown') + ' · ' + (u.active_state || 'unknown'))); list.append(b); }
-    $('hardware-more').hidden = units.length <= hardwarePage;
+    const groups = globalThis.ExplorerContext.devices(idx,data.devices).filter(g=>[g.path,...g.units.flatMap(u=>[u.name,u.description,u.runtime_properties?.Where,u.runtime_properties?.What])].some(v=>String(v||'').toLowerCase().includes(query)));
+    $('hardware-count').textContent = groups.length + ' device/mount groups · showing ' + Math.min(hardwarePage,groups.length);
+    for (const group of groups.slice(0,hardwarePage)) {
+      const u=group.units.find(u=>u.name===selected)||group.units.find(u=>u.name.toLowerCase().includes(query))||group.units[0];
+      const b=button(u.name); b.className='unit-row'+(group.units.some(x=>x.name===selected)?' selected':'');
+      b.append(el('small',(u.unit_type||'unknown')+' · '+(u.active_state||'unknown')+(group.units.length>1?' · '+group.units.length+' unit aliases':''))); list.append(b);
+    }
+    $('hardware-more').hidden = groups.length <= hardwarePage;
     if (!selected) { detail.append(el('h2', 'Choose a device or mount'), el('p', 'Search the inventory on the left, then select an item to see collected evidence.')); return; }
     const u = idx.units.get(selected); detail.append(el('h2', u.name), el('p', u.description || 'Description unknown'), el('p', (u.active_state || 'unknown') + ' (snapshot)', 'selection-status'));
     const mapping = el('dl'); detail.append(mapping);
     if (['mount', 'automount'].includes(u.unit_type)) { field(mapping, 'Mount point (Where)', u.runtime_properties?.Where); field(mapping, 'Mount source (What)', u.runtime_properties?.What); }
     const devices = data.devices.filter(d => d.unit === selected);
+    const aliasGroup = globalThis.ExplorerContext.devices(idx,data.devices).find(g=>g.units.some(x=>x.name===selected));
+    if(aliasGroup && aliasGroup.units.length>1) {const aliases=el('details');aliases.append(el('summary',aliasGroup.units.length+' names for the same observed sysfs path'));for(const alias of aliasGroup.units)aliases.append(button(alias.name));detail.append(aliases);}
     for (const device of devices) { field(mapping, 'Observed sysfs path', device.sysfs_path); const extra = el('details'); extra.append(el('summary', 'udev properties and provenance'), el('pre', JSON.stringify(device.properties, null, 2)), el('p', device.rule_origin || 'Rule origin unknown')); detail.append(extra); }
     if (u.unit_type === 'device' && !devices.length) detail.append(el('p', 'No sysfs mapping collected for this device.', 'warning'));
-    const context = globalThis.ExplorerContext.inspect(idx, selected);
-    detail.append(el('h3', 'Nearby observed contacts'), el('p', 'Two graph hops, not a physical device tree. Original property direction is preserved.', 'muted'));
+    const context = globalThis.ExplorerContext.inspect(idx, selected, {hardwareQuery:$('contact-search').value,hardwareRequestsOnly:$('contact-requests').checked});
+    detail.append(el('h3', 'Direct observed relationships'), el('p', 'Indirect relationships only expand through a device, mount, automount, socket or path. Generic target/service hubs are not traversed. This is not a physical device tree.', 'muted'));
     if (context.hardwareHiddenNodes || context.hardwareHiddenEdges) detail.append(el('p', 'Limited view: ' + context.hardwareHiddenNodes + ' boundary nodes and ' + context.hardwareHiddenEdges + ' edges omitted by size caps.', 'warning'));
-    for (const edge of context.hardware) { const row = el('div', undefined, 'relation'); row.append(button(edge.from), el('small', edge.kind + ' →'), button(edge.to)); detail.append(row); }
-    if (!context.hardware.length) detail.append(el('p', 'No contacts collected within this scope. This does not establish absence of dependencies.'));
+    const showEdge=(edge,parent)=>{const row=el('div',undefined,'relation');row.append(button(edge.from),el('small',edge.kind+' →'),button(edge.to));parent.append(row);};
+    for(const edge of context.hardwareDirect)showEdge(edge,detail);
+    if(!context.hardwareDirect.length)detail.append(el('p','No direct relationships match this view.'));
+    const indirect=el('details');indirect.append(el('summary','Indirect contacts ('+context.hardwareIndirect.length+')'));
+    for(const contact of context.hardwareIndirect){indirect.append(el('p','Via '+contact.via));showEdge(contact.connector,indirect);showEdge(contact.edge,indirect);}detail.append(indirect);
+    if (!context.hardware.length) detail.append(el('p', 'No contacts match this scope and filter. This does not establish absence of dependencies.'));
     const open = el('button', 'Open service context and full observations'); open.addEventListener('click', () => setWorkspace('service')); detail.append(open);
   }
   function syncKindControls() {
@@ -314,7 +354,8 @@
     }
   }
   function renderTimeline() { timeline.setSnapshot(data, idx.units); }
-  for (const mode of ['overview', 'service', 'hardware']) $('task-' + mode).addEventListener('click', () => setWorkspace(mode));
+  for (const mode of ['structure', 'overview', 'service', 'hardware']) $('task-' + mode).addEventListener('click', () => setWorkspace(mode));
+  $('contact-search').addEventListener('input',renderHardware); $('contact-requests').addEventListener('change',renderHardware);
   $('hardware-search').addEventListener('input', () => { hardwarePage = 50; renderHardware(); });
   $('hardware-more').addEventListener('click', () => { hardwarePage += 50; renderHardware(); });
   $('file').addEventListener('change', e => load(e.target.files[0]));
@@ -349,5 +390,5 @@
     }
   });
   canvas.addEventListener('pointercancel', () => { drag = null; });
-  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null); setWorkspace('overview'); renderHardware();
+  window.addEventListener('resize', draw); setView('list'); renderRelations(); timeline.setSnapshot(null); structure.setSnapshot(null); setWorkspace('overview'); renderSelection(); renderHardware();
 })();

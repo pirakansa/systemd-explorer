@@ -14,7 +14,7 @@ cargo build --release
 # Alternatively: cargo run --release -- collect --output snapshot.json
 ```
 
-Run as an ordinary user. Copy `snapshot.json` and this repository's `viewer/` directory to another PC using your preferred transfer method. Open `viewer/index.html` directly, then select or drop the JSON file. Try the fictional [small](viewer/samples/small.json) or [medium](viewer/samples/medium.json) samples first. Choose **Boot overview**, **Plan a service**, or **Explore hardware**. Each workspace focuses on that task; detailed observations and diagnostics can be opened when needed.
+Run as an ordinary user. Copy `snapshot.json` and this repository's `viewer/` directory to another PC using your preferred transfer method. Open `viewer/index.html` directly, then select or drop the JSON file. Try the fictional [small](viewer/samples/small.json) or [medium](viewer/samples/medium.json) samples first. Choose **System structure** for a collapsed relationship map, **Boot overview** for timing, **Plan a service** for prerequisites, or **Explore hardware**. Each workspace focuses on that task; detailed observations and diagnostics can be opened when needed.
 
 **Effective dependencies, activation requests, ordering constraints and observed timestamps are different concepts.** `After=` alone does not start its referenced unit. Disk symlinks and `[Install] WantedBy=` are separately switchable hints and do not prove a current manager relationship. Missing state/history is unknown, not proof that a unit never started.
 
